@@ -1,0 +1,71 @@
+version: "3"
+networks:
+  main:
+
+services:
+  #CSSDK Broker
+  contextbroker:
+    image: "hub.docker.intel.com/responsive-retail-mvp/context-broker:latest"
+    logging:
+      driver: "none"
+    networks:
+      main:
+        aliases:
+          - broker
+    environment:
+      MONGODB_HOST: rrpmongo
+    ports:
+      - 8888:8888
+    depends_on:
+      - rrpmongo
+  #rfid-data microservice, listens to RRS GW and puts data on to ContextSensingBus
+  rfid-data:
+    image: "hub.docker.intel.com/responsive-retail-mvp/rrp-contextsdk-level1:v0.9.1-updated"
+    environment:
+      RETRIES: 10
+      RETRY_INTERVAL: 1
+      GATEWAY_MQTT_IP: 10.2.58.31
+      GATEWAY_MQTT_PORT: 1883
+    command: ["--server", "broker:8888", "--gateway", "${GATEWAY_MQTT_IP:-172.17.0.1}:${GATEWAY_MQTT_PORT:-1883}"]
+    networks:
+      main:
+    depends_on:
+      - contextbroker
+    restart: always
+  #Notification microservice
+  notification:
+    build: ../notification-service
+    ports:
+      - 8083:8080
+    environment:
+      serviceName: "RRP(go) - notification-service"
+    networks:
+      main:
+    restart: always
+  #Mongodb
+  rrpmongo:
+    image: mongo:3.2
+    networks:
+      main:
+        aliases:
+          - mongo
+    volumes:
+      - ./data:/data/db
+    ports:
+      - 27018:27017
+  
+  #rfid alert service
+#  rfid-alert:
+#       build: .
+#    ports:
+#      - 8084:8080
+#    environment:
+#      serviceName: "RRP - RFID Alert Serivce"
+#      contextSensing: broker:8888
+#      watchdogMinutes: 3
+#      loggingLevel: "debug"
+#    networks:
+#      main:
+#    depends_on:
+#      - broker
+#    restart: always
