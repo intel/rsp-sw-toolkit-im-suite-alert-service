@@ -1,7 +1,15 @@
+.vscode
+.idea
+*.iml
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
 *.so
+
+# Test binary, build with `go test -c`
+*.test
+app/**/*.test
 
 # Folders
 _obj
@@ -18,6 +26,16 @@ _cgo_gotypes.go
 _cgo_export.*
 
 _testmain.go
+
+# Binaries
+rfid-alert-service
+
+#Ignoring Mongodata
+data/
+
+#Debug
+debug
+debug.test
 
 *.exe
 *.test
