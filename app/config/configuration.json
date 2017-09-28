@@ -1,9 +1,11 @@
 {
   "serviceName": "RRP - RFID Alert Service",  
   "contextSensing": "127.0.0.1:8888",
-  "watchdogMinutes": 3,
+  "watchdogMinutes": 1,
+  "maxMissedHeartbeats": 2,
   "loggingLevel": "debug",
   "sendHeartbeatTo": "http://localhost:9005/heartbeat",
-  "sendEventTo":"http://localhost:9005/event",
-  "sendAlertTo":"http://localhost:9005/alert"
+  "sendHeartbeatToken":"abc",
+  "sendAlertTo":"http://localhost:9005/alert",
+  "sendAlertToken":"abc"
 }

@@ -25,6 +25,7 @@ import (
 	"context_linux_go/core"
 	"context_linux_go/core/sensing"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,13 +34,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/config"
+	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/routes"
 )
 
 const (
-	eventsUrn    = "urn:x-intel:context:retailsensingplatform:events"
-	heartbeatUrn = "urn:x-intel:context:retailsensingplatform:heartbeat"
-	alertsUrn    = "urn:x-intel:context:retailsensingplatform:alerts"
+	heartbeatUrn      = "urn:x-intel:context:retailsensingplatform:heartbeat"
+	alertsUrn         = "urn:x-intel:context:retailsensingplatform:alerts"
+	jsonApplication   = "application/json;charset=utf-8"
+	connectionTimeout = 15
 )
 
 // initConfig will initialize our configuration parameters
@@ -80,7 +83,6 @@ func initSensing() {
 
 	go func(options core.SensingOptions) {
 		onHeartbeat := make(core.ProviderItemChannel)
-		onEvent := make(core.ProviderItemChannel)
 		onAlert := make(core.ProviderItemChannel)
 
 		for {
@@ -96,7 +98,6 @@ func initSensing() {
 
 				log.Info("Sensing has started")
 				sensingSdk.AddContextTypeListener("*:*", heartbeatUrn, &onHeartbeat, &onSensingError)
-				sensingSdk.AddContextTypeListener("*:*", eventsUrn, &onEvent, &onSensingError)
 				sensingSdk.AddContextTypeListener("*:*", alertsUrn, &onAlert, &onSensingError)
 				log.Info("Waiting for Heartbeat, Event, and Alert data....")
 
@@ -112,19 +113,6 @@ func initSensing() {
 						"Action": "process HeartBeat",
 						"Error":  err.Error(),
 					}).Error("error processing heartbeat data")
-				}
-			case event := <-onEvent:
-				var err error
-				jsonBytes, err := json.MarshalIndent(*event, "", "  ")
-				if err != nil {
-					log.Errorf("Unable to process event")
-				}
-				if err := processEvent(&jsonBytes); err != nil {
-					log.WithFields(log.Fields{
-						"Method": "main",
-						"Action": "process Event",
-						"Error":  err.Error(),
-					}).Error("error processing event")
 				}
 			case alert := <-onAlert:
 				var err error
@@ -146,9 +134,77 @@ func initSensing() {
 	}(sensingOptions)
 }
 
+var gw models.GatewayStatus
+var defaulttime = time.Time{}
+
+func initGatewayStatusCheck(watchdogMinutes int) {
+
+	gw.RegistrationStatus = models.Pending
+	gw.MissedHeartBeats = 0
+	gw.LastHeartbeatSeen = defaulttime
+
+	for {
+		<-time.After(time.Duration(watchdogMinutes) * time.Minute)
+		if gw.RegistrationStatus == models.Registered {
+			// we only care about GWs that are currently registered
+			if gw.LastHeartbeatSeen != defaulttime {
+				// we have seen a HB before,
+				// see if the timespan has expired
+				if time.Since(gw.LastHeartbeatSeen) > time.Duration(watchdogMinutes)*time.Minute {
+					gw.MissedHeartBeats = gw.MissedHeartBeats + 1
+					if gw.MissedHeartBeats >= config.AppConfig.MaxMissedHeartbeats {
+						// we have missed the maximum amount of heartbeats
+						// set this gateway to deregistered
+						gw.RegistrationStatus = models.Deregistered
+						// TODO: send an alert here
+						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
+						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
+							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+						}
+					} else {
+						gwMissedHB := models.NewGatewayMissedHeartbeatAlert(gw.LastHeartbeat)
+						if err := postNotification(gwMissedHB, config.AppConfig.SendAlertTo); err != nil {
+							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+						}
+					}
+				}
+			}
+		} // else this GW is not registered, so ignore it
+	}
+}
+
+func updateGatewayStatus(hb models.HeartBeatMessage) {
+	// we got a heartbeat, update the last seen
+	gw.LastHeartbeatSeen = time.Now()
+	gw.LastHeartbeat = hb
+	// since we just got a heartbeat, there are no missed hb
+	gw.MissedHeartBeats = 0
+
+	if gw.RegistrationStatus == models.Pending {
+		// we just got a heart beat, so mark it as registered
+		gw.RegistrationStatus = models.Registered
+		gw.FirstHeartbeatSeen = gw.LastHeartbeatSeen
+		// TODO: Send an alert that this gw is now registered
+
+		gwRegistered := models.NewGatewayRegisteredAlert(gw.LastHeartbeat)
+
+		if err := postNotification(gwRegistered, config.AppConfig.SendAlertTo); err != nil {
+			log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+		}
+	}
+}
+
 func processHeartbeat(jsonBytes *[]byte) error {
 	jsoned := string(*jsonBytes)
 	log.Infof("Received Heartbeat:\n%s", jsoned)
+
+	var hb models.HeartBeatMessage
+	err := json.Unmarshal(*jsonBytes, &hb)
+	if err != nil {
+		fmt.Println("error parsing Heartbeat:", err)
+	}
+
+	updateGatewayStatus(hb)
 
 	heartbeatEndpoint := config.AppConfig.SendHeartbeatTo
 	if err := postNotification(jsoned, heartbeatEndpoint); err != nil {
@@ -157,19 +213,6 @@ func processHeartbeat(jsonBytes *[]byte) error {
 	}
 
 	log.Infof("Sent Heartbeat to %s", heartbeatEndpoint)
-	return nil
-}
-
-func processEvent(jsonBytes *[]byte) error {
-	jsoned := string(*jsonBytes)
-	log.Infof("Received event:\n%s", jsoned)
-	eventEndpoint := config.AppConfig.SendEventTo
-	if err := postNotification(jsoned, eventEndpoint); err != nil {
-		log.Errorf("Problem sending Event: %s", err)
-		return err
-	}
-
-	log.Infof("Sent event to %s", eventEndpoint)
 	return nil
 }
 
@@ -186,18 +229,14 @@ func processAlert(jsonBytes *[]byte) error {
 	return nil
 }
 
-const (
-	jsonApplication   = "application/json;charset=utf-8"
-	connectionTimeout = 15
-)
-
 func postNotification(data interface{}, to string) error {
 	timeout := time.Duration(connectionTimeout) * time.Second
 	client := &http.Client{
 		Timeout: timeout,
 	}
 
-	mData, err := json.Marshal(data)
+	//TODO: change to Marshal
+	mData, err := json.MarshalIndent(data, "", "    ")
 	if err == nil {
 		request, _ := http.NewRequest("POST", to, bytes.NewBuffer(mData))
 		request.Header.Set("content-type", jsonApplication)
@@ -218,6 +257,8 @@ func postNotification(data interface{}, to string) error {
 	return nil
 }
 
+//func startHeartBeatWatchdog(watchdogMinutes)
+
 func main() {
 
 	initConfig()
@@ -228,6 +269,8 @@ func main() {
 	}).Info("Starting application...")
 
 	initSensing()
+
+	go initGatewayStatusCheck(config.AppConfig.WatchdogMinutes)
 
 	// Start Webserver
 	router := routes.NewRouter()
