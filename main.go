@@ -156,7 +156,6 @@ func initGatewayStatusCheck(watchdogMinutes int) {
 						// we have missed the maximum amount of heartbeats
 						// set this gateway to deregistered
 						gw.RegistrationStatus = models.Deregistered
-						// TODO: send an alert here
 						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
 						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
 							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
@@ -184,8 +183,6 @@ func updateGatewayStatus(hb models.HeartBeatMessage) {
 		// we just got a heart beat, so mark it as registered
 		gw.RegistrationStatus = models.Registered
 		gw.FirstHeartbeatSeen = gw.LastHeartbeatSeen
-		// TODO: Send an alert that this gw is now registered
-
 		gwRegistered := models.NewGatewayRegisteredAlert(gw.LastHeartbeat)
 
 		if err := postNotification(gwRegistered, config.AppConfig.SendAlertTo); err != nil {
@@ -235,7 +232,6 @@ func postNotification(data interface{}, to string) error {
 		Timeout: timeout,
 	}
 
-	//TODO: change to Marshal
 	mData, err := json.MarshalIndent(data, "", "    ")
 	if err == nil {
 		request, _ := http.NewRequest("POST", to, bytes.NewBuffer(mData))
