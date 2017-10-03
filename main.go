@@ -253,8 +253,6 @@ func postNotification(data interface{}, to string) error {
 	return nil
 }
 
-//func startHeartBeatWatchdog(watchdogMinutes)
-
 func main() {
 
 	initConfig()
