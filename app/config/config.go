@@ -28,7 +28,7 @@ type (
 	variables struct {
 		ServiceName, LoggingLevel, ContextSensing string
 		SendHeartbeatTo, SendAlertTo, SendEventTo string
-		WatchdogMinutes                           int
+		WatchdogMinutes, MaxMissedHeartbeats      int
 	}
 )
 
