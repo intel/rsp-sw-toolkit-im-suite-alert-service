@@ -64,7 +64,7 @@ func NewGatewayRegisteredAlert(hb HeartBeatMessage) GatewayRegisteredAlert {
 	gwm.AlertDescription = "Gateway " + hb.Details.DeviceID + " registered"
 	gwm.Severity = "info"
 
-	gwm.SentOn = helper.EpochNow()
+	gwm.SentOn = helper.UnixMilliNow()
 	gwm.Facilities = hb.Details.Facilities
 	gwm.DeviceID = hb.Details.DeviceID
 	gwm.MeshID = hb.Details.MeshID
@@ -82,7 +82,7 @@ func NewGatewayDeregisteredAlert(hb HeartBeatMessage) GatewayDeregisteredAlert {
 	gwm.AlertDescription = "Gateway " + hb.Details.DeviceID + " deregistered"
 	gwm.Severity = "urgent"
 
-	gwm.SentOn = helper.EpochNow()
+	gwm.SentOn = helper.UnixMilliNow()
 	gwm.Facilities = hb.Details.Facilities
 	gwm.DeviceID = hb.Details.DeviceID
 	gwm.MeshID = hb.Details.MeshID
@@ -100,7 +100,7 @@ func NewGatewayMissedHeartbeatAlert(hb HeartBeatMessage) GatewayMissedHeartbeatA
 	gwm.AlertDescription = "Gateway " + hb.Details.DeviceID + " missed heartbeat"
 	gwm.Severity = "critical"
 
-	gwm.SentOn = helper.EpochNow()
+	gwm.SentOn = helper.UnixMilliNow()
 	gwm.Facilities = hb.Details.Facilities
 	gwm.DeviceID = hb.Details.DeviceID
 	gwm.MeshID = hb.Details.MeshID
