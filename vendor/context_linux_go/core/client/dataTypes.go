@@ -1,13 +1,13 @@
-// Package broker is an abstraction for connections to the bus
-package broker
+// Package client is an abstraction for connections to the bus
+package client
 
 import (
 	"context_linux_go/core"
 )
 
-// Broker represents an abstract connection to a broker server (bus) which distributes messages
+// ClientInterface represents an abstract connection to a broker server (bus) which distributes messages
 // out to different clients
-type Broker interface {
+type ClientInterface interface { // nolint: golint
 	EstablishConnection() error
 	IsConnected() bool
 	Close()
@@ -15,8 +15,8 @@ type Broker interface {
 	Publish(item *core.ItemData)
 	RegisterDevice(onStartedHandler interface{})
 	RegisterType(schema core.JSONSchema)
-	SendCommand(macAddress string, application string, handlerId int, method string, params []interface{}, valueChannel chan interface{})
-	SetCommandHandler(handlerId int, info core.CommandHandlerInfo)
+	SendCommand(macAddress string, application string, handlerID int, method string, params []interface{}, valueChannel chan interface{})
+	SetCommandHandler(handlerID int, info core.CommandHandlerInfo)
 }
 
 type deviceInfo struct {
@@ -34,7 +34,7 @@ type serverParams struct {
 	Handler string       `json:"handler"`
 	Headers socketHeader `json:"headers"`
 	Body    interface{}  `json:"body"`
-	Query   *string      `json:"query"`
+	Query   interface{}  `json:"query"`
 }
 
 type result struct {
@@ -44,18 +44,18 @@ type result struct {
 
 type serverMessage struct {
 	ContextRPC string        `json:"contextrpc"`
-	JsonRPC    string        `json:"jsonrpc"`
+	JSONRPC    string        `json:"jsonrpc"`
 	Method     *string       `json:"method"`
 	Endpoint   *endpoint     `json:"endpoint"`
 	Params     *serverParams `json:"params"`
-	Id         interface{}   `json:"id"`
+	ID         interface{}   `json:"id"`
 
 	Result *result `json:"result"`
 	Error  *result `json:"error"`
 }
 
 type device struct {
-	Id string `json:"id"`
+	ID string `json:"id"`
 }
 
 type owner struct {

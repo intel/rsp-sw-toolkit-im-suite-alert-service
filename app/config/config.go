@@ -29,6 +29,7 @@ type (
 		ServiceName, LoggingLevel, ContextSensing string
 		SendHeartbeatTo, SendAlertTo, SendEventTo string
 		WatchdogMinutes, MaxMissedHeartbeats      int
+		SecureMode, SkipCertVerify                bool
 	}
 )
 
@@ -67,6 +68,18 @@ func InitConfig() error {
 	AppConfig.SendAlertTo, err = config.GetString("sendAlertTo")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.SecureMode, err = config.GetBool("secureMode")
+	if err != nil {
+		AppConfig.SecureMode = false
+		err = nil
+	}
+
+	AppConfig.SkipCertVerify, err = config.GetBool("skipCertVerify")
+	if err != nil {
+		AppConfig.SkipCertVerify = false
+		err = nil
 	}
 
 	// Set "debug" for development purposes. Nil for Production.

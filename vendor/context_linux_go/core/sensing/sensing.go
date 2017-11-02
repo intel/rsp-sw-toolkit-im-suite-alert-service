@@ -1,9 +1,11 @@
-//Context SDK Golang - v0.9.3
+//Context SDK Golang - v0.9.2
+
 package sensing
 
 import (
 	"context_linux_go/core"
-	"context_linux_go/core/broker"
+	"context_linux_go/core/client"
+	"context_linux_go/logger"
 	"errors"
 	"fmt"
 	"os"
@@ -14,7 +16,8 @@ import (
 	"time"
 )
 
-type Sensing struct {
+// Sensing integrates all the components of the SDK
+type Sensing struct { // nolint: aligncheck
 
 	// Local provider
 	dispatchers map[int]*localDispatcher
@@ -33,16 +36,16 @@ type Sensing struct {
 	application      string
 	macAddress       string
 	server           string
-	commandHandlerId int
+	commandHandlerID int
 
-	// Abstraction for talking to the broker
-	broker         broker.Broker
-	brokerItemChan core.ProviderItemChannel
-	brokerErrChan  core.ErrorChannel
+	// Abstraction for talking to the clientInterface
+	clientInterface client.ClientInterface
+	clientItemChan  core.ProviderItemChannel
+	clientErrChan   core.ErrorChannel
 
 	remoteDone chan bool
 
-	// Array of URNs which have had schemas registered with the broker
+	// Array of URNs which have had schemas registered with the clientInterface
 	registeredCtxTypes map[string]bool
 
 	// Event cache. String is either providerID:type or mac:application:type like AddContextTypeListener
@@ -53,6 +56,8 @@ type Sensing struct {
 	//Sensing Channels
 	startedC core.SensingStartedChannel
 	errC     core.ErrorChannel
+
+	logger logger.ContextGoLogger
 }
 
 // Represents a dispatcher for local providers
@@ -84,24 +89,34 @@ func NewSensing() *Sensing {
 		itemChannels:   make(map[string][]*core.ProviderItemChannel),
 		errChannels:    make(map[string][]*core.ErrorChannel),
 		remoteDone:     make(chan bool),
-		brokerItemChan: make(core.ProviderItemChannel, 10),
-		brokerErrChan:  make(core.ErrorChannel, 10),
+		clientItemChan: make(core.ProviderItemChannel, 10),
+		clientErrChan:  make(core.ErrorChannel, 10),
 
 		registeredCtxTypes: make(map[string]bool),
 
 		eventCache: make(map[string]*core.ItemData),
 
-		broker: &broker.WSBroker{},
+		logger: *logger.New("contextsdk", logger.JSONFormat, os.Stdout, logger.DebugLevel),
 	}
 
 	return &sensing
 }
 
 // Start begins local and remote sensing using the specified options
-func (sensing *Sensing) Start(options core.SensingOptions) {
+func (sensing *Sensing) Start(options core.SensingOptions) { // nolint: gocyclo
 
 	if options.Application == "" {
-		options.Application, _ = os.Hostname()
+		var err error
+		options.Application, err = os.Hostname()
+		if err != nil {
+			//ToDo: Add error handling or logging
+			println("Error during Sensing Start()")
+		}
+	}
+	sensing.logger.EnableLogging()
+	sensing.logger.SetLogLevel(options.LogLevel)
+	if options.LogFile != "" {
+		sensing.logger.SetLogFile(options.LogFile)
 	}
 
 	sensing.startedC = options.OnStarted
@@ -109,8 +124,12 @@ func (sensing *Sensing) Start(options core.SensingOptions) {
 
 	sensing.server = options.Server
 
-	// TODO need to abstract out the broker further
-	sensing.broker = broker.NewWebSocketsBroker(options, sensing.brokerItemChan, options.OnError)
+	sensing.clientInterface = client.NewWebSocketsClient(options, sensing.clientItemChan, options.OnError)
+
+	if sensing.clientInterface == nil {
+		sensing.startedC <- &core.SensingStarted{Started: false}
+		return
+	}
 
 	sensing.publish = options.Publish
 
@@ -119,14 +138,15 @@ func (sensing *Sensing) Start(options core.SensingOptions) {
 	sensingStarted := func() {
 		started := core.SensingStarted{Started: true}
 		sensing.startedC <- &started
+		sensing.logger.Info("Sensing has started", nil)
 	}
 
-	// Handle events coming in over the broker item channel.
+	// Handle events coming in over the clientInterface item channel.
 	// TODO distribute errors?
 	go func() {
 		for {
 			select {
-			case item := <-sensing.brokerItemChan:
+			case item := <-sensing.clientItemChan:
 				specificKey := item.MacAddress + ":" + item.Application + ":" + item.Type
 				genericKey := "*:*:" + item.Type
 				itemChannels := sensing.itemChannels[specificKey]
@@ -151,14 +171,16 @@ func (sensing *Sensing) Start(options core.SensingOptions) {
 	}()
 
 	if options.Server != "" {
-		err := sensing.broker.EstablishConnection()
+		err := sensing.clientInterface.EstablishConnection()
 		if err != nil {
+			sensing.logger.Error(err.Error(), nil)
 			sensing.errC <- core.ErrorData{Error: err}
-		} else if !sensing.broker.IsConnected() {
+		} else if !sensing.clientInterface.IsConnected() {
+			sensing.logger.Panic("Websocket connection error. Program will exit.", logger.Params{"Broker Address": sensing.server})
 			sensing.errC <- core.ErrorData{Error: fmt.Errorf(
 				"Websocket connection error. Program will exit. Broker address: %v", sensing.server)}
 		} else {
-			sensing.broker.RegisterDevice(sensingStarted)
+			sensing.clientInterface.RegisterDevice(sensingStarted)
 		}
 	} else {
 		sensingStarted()
@@ -167,14 +189,19 @@ func (sensing *Sensing) Start(options core.SensingOptions) {
 
 // Stop local and remote sensing operations
 func (sensing *Sensing) Stop() {
-	sensing.broker.Close()
+	sensing.logger.Info("Sensing is stopping", nil)
+	sensing.clientInterface.Close()
 
 	// Stop the remote dispatch goroutine
 	sensing.remoteDone <- true
 
 	// Stop Local providers
 	for id := range sensing.dispatchers {
-		sensing.DisableSensing(id)
+		err := sensing.DisableSensing(id)
+		if err != nil {
+			//ToDo: Add error handling or logging
+			println("Error during Sensing Stop()")
+		}
 	}
 }
 
@@ -204,7 +231,7 @@ func (sensing *Sensing) GetProviders() map[int][]string {
 // and remote publishing
 func (sensing *Sensing) fillInItem(providerID int, item *core.ItemData) {
 	if item != nil {
-		item.ProviderId = providerID
+		item.ProviderID = providerID
 		item.Application = sensing.application
 		item.MacAddress = sensing.macAddress
 		item.DateTime = time.Now().Format(time.RFC3339)
@@ -245,7 +272,7 @@ func (sensing *Sensing) closeContextTypeChannels(id int) {
 // will be sent to onItem. Any errors will be sent to onErr. The channels may be nil.\
 //
 // Returns an integer representing the local provider ID
-func (sensing *Sensing) EnableSensing(provider core.ProviderInterface, onItem core.ProviderItemChannel, onErr core.ErrorChannel) int {
+func (sensing *Sensing) EnableSensing(provider core.ProviderInterface, onItem core.ProviderItemChannel, onErr core.ErrorChannel) int { // nolint: gocyclo
 	sensing.dispMutex.Lock()
 	defer sensing.dispMutex.Unlock()
 
@@ -253,7 +280,7 @@ func (sensing *Sensing) EnableSensing(provider core.ProviderInterface, onItem co
 	sensing.dispacherID++
 
 	options := provider.GetOptions()
-	options.ProviderId = providerID
+	options.ProviderID = providerID
 	options.Sensing = sensing
 
 	var dispatcher localDispatcher
@@ -316,6 +343,7 @@ func (sensing *Sensing) DisableSensing(providerID int) error {
 
 	// TODO Should send an error on the error channel instead?
 	if !ok {
+		sensing.logger.Error("Could not find provider.", logger.Params{"providerId": providerID})
 		return fmt.Errorf("Could not find provider for %v", providerID)
 	}
 
@@ -336,6 +364,7 @@ func (sensing *Sensing) GetItem(providerID string, contextType string, useCache 
 
 	if useCache {
 		if !sensing.useCache {
+			sensing.logger.Error("Cache is not enabled", nil)
 			sensing.errC <- core.ErrorData{Error: errors.New("Cache not enabled")}
 			return nil
 		}
@@ -364,8 +393,10 @@ func (sensing *Sensing) GetItem(providerID string, contextType string, useCache 
 				return item
 			}
 
+			sensing.logger.Error("Local provider is not enabled", logger.Params{"Provider ID": pID})
 			sensing.errC <- core.ErrorData{Error: fmt.Errorf("Local provider %d not enabled", pID)}
 		} else {
+			sensing.logger.Error("Could not parse provider ID", logger.Params{"error": err.Error()})
 			sensing.errC <- core.ErrorData{Error: errors.New("Could not parse provider ID: " + err.Error())}
 		}
 	}
@@ -375,6 +406,7 @@ func (sensing *Sensing) GetItem(providerID string, contextType string, useCache 
 
 // Dispatch a local provider's item to other local providers and optionally
 // publish to the bus
+// nolint: gocyclo
 func (dispatcher *localDispatcher) dispatch(providerID int, data interface{}) {
 	// Local Dispatch
 	switch data.(type) {
@@ -398,8 +430,8 @@ func (dispatcher *localDispatcher) dispatch(providerID int, data interface{}) {
 			dispatcher.sensing.cacheMutex.Unlock()
 		}
 
-		if dispatcher.publish && dispatcher.sensing.broker.IsConnected() {
-			dispatcher.sensing.broker.Publish(item)
+		if dispatcher.publish && dispatcher.sensing.clientInterface.IsConnected() {
+			dispatcher.sensing.clientInterface.Publish(item)
 		}
 	case core.ErrorData:
 		err := data.(core.ErrorData)
@@ -413,24 +445,25 @@ func (dispatcher *localDispatcher) dispatch(providerID int, data interface{}) {
 			*channel <- err
 		}
 
-		if dispatcher.publish && dispatcher.sensing.broker.IsConnected() {
-			// TODO publish to broker. Node version doesn't do this yet
+		if dispatcher.publish && dispatcher.sensing.clientInterface.IsConnected() { // nolint: staticcheck
+			// TODO publish to clientInterface. Node version doesn't do this yet
 		}
 	default:
+		dispatcher.sensing.logger.Panic("Unexpected type to dispatch.", logger.Params{"type": data})
 		panic(fmt.Sprintf("Unexpected type to dispatch: %T", data))
 	}
 }
 
-// Register the schema for each context type a provider supports with the broker
+// Register the schema for each context type a provider supports with the clientInterface
 // for schema validation
 func (sensing *Sensing) registerContextTypesWithBroker(provider core.ProviderInterface) {
-	if !sensing.broker.IsConnected() {
+	if !sensing.clientInterface.IsConnected() {
 		return
 	}
 
 	for _, provType := range provider.Types() {
 		if _, ok := sensing.registeredCtxTypes[provType.URN]; !ok {
-			sensing.broker.RegisterType(provType.Schema)
+			sensing.clientInterface.RegisterType(provType.Schema)
 			sensing.registeredCtxTypes[provType.URN] = true
 		}
 	}
@@ -457,6 +490,7 @@ func (sensing *Sensing) AddContextTypeListener(providerID string, contextType st
 	}
 }
 
+// EnableCommands enables the command handled by the handler along with the options
 func (sensing *Sensing) EnableCommands(handler core.CommandHandlerInterface, handlerStartOptions map[string]interface{}) int {
 	handlerInfo := core.CommandHandlerInfo{
 		Handler: handler,
@@ -466,14 +500,15 @@ func (sensing *Sensing) EnableCommands(handler core.CommandHandlerInterface, han
 	if publish, ok := handlerStartOptions["publish"]; ok {
 		handlerInfo.Publish = reflect.ValueOf(publish).Bool()
 	}
-	sensing.broker.SetCommandHandler(sensing.commandHandlerId, handlerInfo)
+	sensing.clientInterface.SetCommandHandler(sensing.commandHandlerID, handlerInfo)
 	handler.Start(handlerStartOptions)
-	returnId := sensing.commandHandlerId
-	sensing.commandHandlerId++
+	returnID := sensing.commandHandlerID
+	sensing.commandHandlerID++
 
-	return returnId
+	return returnID
 }
 
-func (sensing *Sensing) SendCommand(macAddress string, application string, handlerId int, method string, params []interface{}, valueChannel chan interface{}) {
-	sensing.broker.SendCommand(macAddress, application, handlerId, method, params, valueChannel)
+// SendCommand redirects the parameters to the clientInterface's SendCommand function
+func (sensing *Sensing) SendCommand(macAddress string, application string, handlerID int, method string, params []interface{}, valueChannel chan interface{}) {
+	sensing.clientInterface.SendCommand(macAddress, application, handlerID, method, params, valueChannel)
 }

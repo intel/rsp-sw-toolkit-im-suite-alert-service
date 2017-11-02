@@ -64,13 +64,14 @@ func initConfig() {
 
 // nolint: gocyclo
 func initSensing() {
-	onSensingStarted := make(core.SensingStartedChannel)
-	onSensingError := make(core.ErrorChannel)
+	onSensingStarted := make(core.SensingStartedChannel, 1)
+	onSensingError := make(core.ErrorChannel, 1)
 
 	sensingOptions := core.SensingOptions{
 		Server:        config.AppConfig.ContextSensing,
 		Publish:       true,
-		Secure:        false,
+		Secure:  config.AppConfig.SecureMode,
+		SkipCertificateVerification: config.AppConfig.SkipCertVerify,
 		Application:   config.AppConfig.ServiceName,
 		OnStarted:     onSensingStarted,
 		OnError:       onSensingError,
