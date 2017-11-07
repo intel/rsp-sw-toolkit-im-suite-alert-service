@@ -129,7 +129,7 @@ func initSensing() {
 					}).Error("error processing alert")
 				}
 			case err := <-options.OnError:
-				log.Errorf("Received sensingSdk error: %v", err)
+				log.Fatalf("Received sensingSdk error: %v, exiting...", err)
 			}
 		}
 	}(sensingOptions)
