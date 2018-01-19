@@ -1,3 +1,16 @@
+//
+// INTEL CONFIDENTIAL
+// Copyright 2017 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and your use of them is governed
+// by the express license under which they were provided to you (License). Unless the License provides otherwise,
+// you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
+// without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express or implied warranties, other than
+// those that are expressly stated in the License.
+//
+
 package client
 
 import (
@@ -13,11 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"net/http"
+
 	"golang.org/x/net/websocket"
 )
 
+var contextRPCVersion = core.GetVersion()
+
 const (
-	contextRPCVersion  = "0.9.0"
 	jsonRPCVersion     = "2.0"
 	defaultIPAddress   = "0:0:0:0:0:0"
 	defaultApplication = "sensing"
@@ -39,7 +55,9 @@ type WSClient struct { // nolint: aligncheck
 	keepAlive        bool
 	doneChan         chan bool
 	responseHandlers map[int]interface{}
-	CommandHandlers  map[int]core.CommandHandlerInfo //TODO FIX
+
+	nodeID   string
+	password string
 
 	rootCA           *x509.CertPool
 	skipVerification bool
@@ -48,10 +66,12 @@ type WSClient struct { // nolint: aligncheck
 	retryInterval int
 
 	respHandlerMutex sync.Mutex
+
+	cmdProc CommandProcessor
 }
 
 // NewWebSocketsClient creates a new wsClient connection using websockets
-func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemChannel, onErr core.ErrorChannel) ClientInterface {
+func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemChannel, onErr core.ErrorChannel, cmdProc CommandProcessor) ClientInterface {
 	var wsClient WSClient
 
 	if options.Secure {
@@ -80,10 +100,14 @@ func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemCh
 	wsClient.retryInterval = options.RetryInterval
 
 	wsClient.responseHandlers = make(map[int]interface{})
-	wsClient.CommandHandlers = make(map[int]core.CommandHandlerInfo)
+
+	wsClient.nodeID = options.NodeID
+	wsClient.password = options.Password
 
 	// If the connection loop has an error, this channel will be written to before Close()
 	wsClient.doneChan = make(chan bool)
+
+	wsClient.cmdProc = cmdProc
 
 	return &wsClient
 }
@@ -100,7 +124,7 @@ func (wsClient *WSClient) Publish(item *core.ItemData) {
 			state{
 				Type:     item.Type,
 				DateTime: item.DateTime,
-				Value:    core.JSONSchema{"value": item.Value},
+				Value:    item.Value,
 			},
 		},
 	}
@@ -162,25 +186,6 @@ func (wsClient *WSClient) Close() {
 	}
 }
 
-// SetCommandHandler will set the CommandHandlerInfo object at the array location specified by handlerID
-func (wsClient *WSClient) SetCommandHandler(handlerID int, info core.CommandHandlerInfo) {
-	wsClient.CommandHandlers[handlerID] = info
-}
-
-func (wsClient *WSClient) getPublishedCommandHandlerIDs(method string) ([]int, error) {
-	var handlerIDs []int
-	for handlerID := range wsClient.CommandHandlers {
-		_, methodTypeFound := wsClient.CommandHandlers[handlerID].Methods[method]
-		if wsClient.CommandHandlers[handlerID].Publish && methodTypeFound {
-			handlerIDs = append(handlerIDs, handlerID)
-		}
-	}
-	if len(handlerIDs) == 0 {
-		return nil, errors.New("No command handlers found")
-	}
-
-	return handlerIDs, nil
-}
 func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, responseHandler interface{}, macAddress string, application string) {
 	wsClient.respHandlerMutex.Lock()
 	defer wsClient.respHandlerMutex.Unlock()
@@ -198,7 +203,7 @@ func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, re
 
 	requestID := wsClient.requestID
 
-	jsonStr := serverMessage{
+	jsonStr := rpcMessage{
 		ContextRPC: contextRPCVersion,
 		JSONRPC:    jsonRPCVersion,
 		Method:     &method,
@@ -206,10 +211,8 @@ func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, re
 			MacAddress:  macAddress,
 			Application: application,
 		},
-		Params: &serverParams{
-			Body: params,
-		},
-		ID: &requestID,
+		Params: params,
+		ID:     &requestID,
 	}
 
 	wsClient.requestID++
@@ -261,10 +264,7 @@ func (wsClient *WSClient) sendToServer(method string, handler string, query stri
 
 	params := serverParams{
 		Handler: handler,
-		Headers: socketHeader{
-			Authorization: "Bearer null",
-		},
-		Body: body,
+		Body:    body,
 	}
 
 	if query == "" {
@@ -276,7 +276,7 @@ func (wsClient *WSClient) sendToServer(method string, handler string, query stri
 	wsClient.sendCommand(method, params, responseHandler, "", "")
 }
 
-func (wsClient *WSClient) webSocketListener() {
+func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 
 	wsClient.keepAlive = true
 
@@ -287,16 +287,20 @@ func (wsClient *WSClient) webSocketListener() {
 			break
 		}
 
-		message := serverMessage{}
-		err := websocket.JSON.Receive(wsClient.serverConnection, &message)
+		msg := []byte{}
+		err := websocket.Message.Receive(wsClient.serverConnection, &msg)
 
 		if err != nil {
 			// If keepAlive is false, we are in the shutdown state and so can recieve errors relating
 			// to a closed connection which should be ignored (since there isn't another way to break out of Receive)
 			if wsClient.keepAlive {
-				wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Websocket Error - Received Message: %s", err)}
+				if err.Error() == "EOF" {
+					wsClient.errChan <- core.ErrorData{Error: errors.New("Error 503 Service Unavailable")}
+				} else {
+					wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Websocket Error - Received Message: %s", err)}
+				}
 				if wsClient.serverConnection != nil {
-					err := wsClient.serverConnection.Close()
+					err := wsClient.serverConnection.Close() //nolint:vetshadow
 					if err != nil {
 						wsClient.errChan <- core.ErrorData{Error: errors.New("Error on Server Connection Close")}
 					}
@@ -307,22 +311,47 @@ func (wsClient *WSClient) webSocketListener() {
 			break
 		}
 
-		if isResponse(&message) {
-			wsClient.handleResponse(&message)
-		} else {
-			wsClient.handleRequest(&message)
+		rawMessage := map[string]*json.RawMessage{}
+		err = websocket.JSON.Unmarshal(msg, 0, &rawMessage)
+
+		// Unmarshal the rest of the message based on its keys (request, response, method)
+		if err == nil {
+			if isResponse(&rawMessage) {
+				srvMessage := serverMessage{}
+				err = json.Unmarshal(msg, &srvMessage)
+				if srvMessage.Error != nil {
+					wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Received error response: %s %d",
+						srvMessage.Error.Message, srvMessage.Error.Code)}
+				}
+				wsClient.handleResponse(&srvMessage)
+			} else {
+				// See if this request is an RPC request
+				method := ""
+				err = json.Unmarshal(*rawMessage["method"], &method)
+				if err == nil {
+					if strings.HasPrefix(method, "RPC:") {
+						rpcMsg := rpcMessage{}
+						err = json.Unmarshal(msg, &rpcMsg)
+						wsClient.handleRPCRequest(&rpcMsg)
+					} else {
+						// Item PUT broadcast from the broker
+						srvMessage := serverMessage{}
+						err = json.Unmarshal(msg, &srvMessage)
+						wsClient.handleItemPut(&srvMessage)
+					}
+				}
+			}
+		}
+
+		if err != nil {
+			wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Could not parse message: %s", err)}
 		}
 	}
 
 	wsClient.doneChan <- true
 }
 
-func (wsClient *WSClient) handleRequest(message *serverMessage) { // nolint: gocyclo
-	if strings.HasPrefix(*message.Method, "RPC:") {
-		wsClient.handleRPCRequest(message)
-		return
-	}
-
+func (wsClient *WSClient) handleItemPut(message *serverMessage) { // nolint: gocyclo
 	if (message.Endpoint.MacAddress == defaultIPAddress) && (message.Endpoint.Application == defaultApplication) && (*message.Method == "PUT") && (message.Params.Handler == "states") {
 		body := serverRequestBody{}
 
@@ -389,122 +418,61 @@ func (wsClient *WSClient) handleResponse(message *serverMessage) {
 }
 
 // SendCommand sends the value to the local or remote handler
-func (wsClient *WSClient) SendCommand(macAddress string, application string, handlerID int, method string, params []interface{}, valueChannel chan interface{}) {
-	if macAddress == "" || application == "" {
-		//local handler
-		localHandlerInfo, ok := wsClient.CommandHandlers[handlerID]
-		if !ok {
-			wsClient.errChan <- core.ErrorData{Error: errors.New("Unknown Handler: " + strconv.Itoa(handlerID))}
-			valueChannel <- core.ErrorData{Error: errors.New("Unknown Handler: " + strconv.Itoa(handlerID))}
-
-		} else {
-			localHandlerMethod := reflect.ValueOf(localHandlerInfo.Methods[method])
-			var handlerArgs []reflect.Value
-			if len(params) > 0 {
-				for _, param := range params {
-					handlerArgs = append(handlerArgs, reflect.ValueOf(param))
-				}
-			}
-			returnedValueArray := localHandlerMethod.Call(handlerArgs)
-			if len(returnedValueArray) == 1 {
-				returnValue := returnedValueArray[0].Interface()
-				valueChannel <- returnValue
-			} else {
-				returnValue := make([]interface{}, len(returnedValueArray))
-				for idx, val := range returnedValueArray {
-					returnValue[idx] = val.Interface()
-				}
-				valueChannel <- returnValue
-			}
-		}
+func (wsClient *WSClient) SendCommand(macAddress string, application string, method string, params []interface{}, valueChannel chan interface{}) { //nolint: gocyclo
+	if macAddress == "" && application == "" {
+		panic("Local commands not implemented by the client interface")
 	} else {
 		//remote handler
 		sendCommandResponseHandler := func(response serverMessage) {
 			if response.Error != nil {
-				wsClient.errChan <- core.ErrorData{Error: errors.New("SendCommand Error")}
-				valueChannel <- core.ErrorData{Error: errors.New("SendCommand Error")}
+				err := fmt.Errorf("SendCommand Error: %v", response.Error)
+				valueChannel <- core.ErrorData{Error: err}
 				return
 			}
+
 			valueChannel <- response.Result.Body
 		}
 		wsClient.sendCommandRPC("RPC:"+method, params, sendCommandResponseHandler, macAddress, application)
 	}
 }
 
-func (wsClient *WSClient) handleRPCRequest(request *serverMessage) {
+func (wsClient *WSClient) handleRPCRequest(request *rpcMessage) {
 	methodType := strings.Trim(*request.Method, "RPC:")
-	//TODO getItem
-	handlerIds, err := wsClient.getPublishedCommandHandlerIDs(methodType)
-	if err != nil {
-		wsClient.sendRPCResponse(request, nil, &result{Body: "Method unavailable", ResponseCode: 404})
+
+	arrayParams := request.Params
+	valueChannel := make(chan interface{}, 1)
+
+	wsClient.cmdProc.ProcessCommand(methodType, arrayParams, valueChannel)
+
+	genericValue := <-valueChannel
+	//is local error?
+	errorValue, ok := genericValue.(core.ErrorData)
+	if ok {
+		wsClient.sendRPCResponse(request, nil, &rpcError{Message: errorValue.Error.Error(), Code: http.StatusBadRequest})
 		return
 	}
-	for handlerID := range handlerIds {
-		valueChannel := make(chan interface{}, 1)
-		arrayParams, ok := request.Params.Body.([]interface{})
-		if !ok {
-			wsClient.sendRPCResponse(request, nil, &result{Body: "Cannot parse params as array", ResponseCode: 404})
-			return
-		}
-		wsClient.SendCommand("", "", handlerID, methodType, arrayParams, valueChannel)
-		genericValue := <-valueChannel
-		//is response?
-		response, ok := genericValue.(serverMessage)
-		if ok {
-			wsClient.sendRPCResponse(request, response.Result, response.Error)
-			return
-		}
-		//is local error?
-		errorValue, ok := genericValue.(error)
-		if ok {
-			wsClient.sendRPCResponse(request, nil, &result{Body: errorValue.Error(), ResponseCode: 404})
-			return
-		}
-		wsClient.sendRPCResponse(request, &result{Body: genericValue, ResponseCode: 200}, nil)
-	}
+
+	wsClient.sendRPCResponse(request, &result{Body: genericValue, ResponseCode: http.StatusOK}, nil)
 }
 
-func (wsClient *WSClient) sendRPCResponse(request *serverMessage, result *result, errorResult *result) {
-	messageID := request.ID
-	var responseID int
-	var err error
-	responseEndpoint := request.Endpoint
-	responseIDFloat, ok := messageID.(float64)
-	if !ok {
-		responseIDString, ok := messageID.(string)
-		if !ok {
-			panic("sending response message ID was not a string or int from wsClient")
-		}
-		splitResponseID := strings.Split(responseIDString, ":")
-		responseEndpoint = &endpoint{MacAddress: splitResponseID[0] + ":" + splitResponseID[1] + ":" + splitResponseID[2] + ":" + splitResponseID[3] + ":" + splitResponseID[4] + ":" + splitResponseID[5],
-			Application: splitResponseID[6]}
-		responseID, err = strconv.Atoi(splitResponseID[len(splitResponseID)-1])
-		if err != nil {
-			panic("sending response could not convert message ID to int")
-		}
-	} else {
-		responseID = int(responseIDFloat)
-	}
-	response := serverMessage{
+func (wsClient *WSClient) sendRPCResponse(request *rpcMessage, result *result, errorResult *rpcError) {
+	response := rpcMessage{
 		ContextRPC: contextRPCVersion,
-		ID:         responseID,
+		ID:         request.ID,
 		JSONRPC:    jsonRPCVersion,
-		Method:     request.Method,
-		Endpoint:   responseEndpoint,
 	}
 	if errorResult != nil {
 		response.Error = errorResult
 	} else {
 		response.Result = result
 	}
-	err = websocket.JSON.Send(wsClient.serverConnection, response)
+
+	err := websocket.JSON.Send(wsClient.serverConnection, response)
 	if err != nil {
 		wsClient.errChan <- core.ErrorData{Error: errors.New("Websocket send error")}
 	}
 }
-func isResponse(message *serverMessage) bool {
-	if message.Result != nil || message.Error != nil {
-		return true
-	}
-	return false
+
+func isResponse(message *map[string]*json.RawMessage) bool {
+	return (*message)["result"] != nil || (*message)["error"] != nil
 }

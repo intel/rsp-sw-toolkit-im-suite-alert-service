@@ -1,10 +1,27 @@
+//
+// INTEL CONFIDENTIAL
+// Copyright 2017 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and your use of them is governed
+// by the express license under which they were provided to you (License). Unless the License provides otherwise,
+// you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
+// without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express or implied warranties, other than
+// those that are expressly stated in the License.
+//
+
 package logger
 
 import (
-	"github.com/sirupsen/logrus"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Params is a map to create parameters to log
@@ -181,5 +198,27 @@ func (loggerInstance *ContextGoLogger) logToFile(pathToFile string) {
 		loggerInstance.SetOutput(file)
 	} else {
 		loggerInstance.Info("Failed to log to file, using default stdout", nil)
+	}
+}
+
+// StackTrace logs the current stack trace at Error level
+func (loggerInstance *ContextGoLogger) StackTrace(message string, err interface{}) {
+	loggerInstance.logger.Errorln(fmt.Sprintf("%s: %v", message, err))
+	pc := make([]uintptr, 10)
+	n := runtime.Callers(0, pc)
+	if n == 0 {
+		return
+	}
+	pc = pc[:n]
+	frames := runtime.CallersFrames(pc)
+	for {
+		frame, more := frames.Next()
+		if strings.Contains(frame.File, "runtime/") {
+			continue
+		}
+		loggerInstance.logger.Errorln(fmt.Sprintf("%v - %v:%v", frame.Function, frame.File, frame.Line))
+		if !more {
+			break
+		}
 	}
 }
