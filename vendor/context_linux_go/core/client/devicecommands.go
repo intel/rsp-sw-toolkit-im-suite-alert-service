@@ -1,3 +1,16 @@
+//
+// INTEL CONFIDENTIAL
+// Copyright 2017 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and your use of them is governed
+// by the express license under which they were provided to you (License). Unless the License provides otherwise,
+// you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
+// without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express or implied warranties, other than
+// those that are expressly stated in the License.
+//
+
 package client
 
 import (
@@ -54,11 +67,23 @@ func (wsClient *WSClient) getDeviceInfo() deviceInfo {
 		City:    "Hillsboro",
 	}
 
+	// If credentials are not provided, this will still be nil. When marshalling,
+	// the field will be ignored since it is a pointer
+	var creds *credentials
+
+	if wsClient.nodeID != "" && wsClient.password != "" {
+		creds = &credentials{
+			NodeID:   wsClient.nodeID,
+			Password: wsClient.password,
+		}
+	}
+
 	devInfo := deviceInfo{
-		MacAddress: macAddress,
-		Sensors:    nil,
-		Name:       wsClient.application,
-		Location:   loc,
+		MacAddress:  macAddress,
+		Sensors:     nil,
+		Name:        wsClient.application,
+		Location:    loc,
+		Credentials: creds,
 	}
 
 	return devInfo

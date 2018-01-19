@@ -1,4 +1,15 @@
-//Context SDK Golang - v0.9.2
+//
+// INTEL CONFIDENTIAL
+// Copyright 2017 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and your use of them is governed
+// by the express license under which they were provided to you (License). Unless the License provides otherwise,
+// you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
+// without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express or implied warranties, other than
+// those that are expressly stated in the License.
+//
 
 package core
 
@@ -42,17 +53,21 @@ type ProviderInterface interface {
 	GetOptions() *ProviderOptions
 }
 
+// CommandFunc is a generic function pointer definition for all commands
+// It accepts an arbitrary number of input arguments and returns an interface{} with the result
+type CommandFunc func(...interface{}) interface{}
+
 // CommandHandlerInterface is the generic interface that commands will implement
 type CommandHandlerInterface interface {
 	Start(map[string]interface{})
 	Stop()
-	Methods() map[string]interface{} //map of types to method calls
+	Methods() map[string]CommandFunc //map of types to method calls
 }
 
 // CommandHandlerInfo is a struct containing the handler and map of types to method calls
 type CommandHandlerInfo struct {
 	Handler            CommandHandlerInterface
-	Methods            map[string]interface{}
+	Methods            map[string]CommandFunc
 	MethodDoneChannels map[string]chan bool
 	Publish            bool
 }
@@ -87,6 +102,8 @@ type SensingOptions struct { // nolint: aligncheck
 	UseCache      bool
 	LogFile       string
 	LogLevel      logger.LogLevel
+	NodeID        string
+	Password      string
 
 	OnStarted SensingStartedChannel
 	OnError   ErrorChannel

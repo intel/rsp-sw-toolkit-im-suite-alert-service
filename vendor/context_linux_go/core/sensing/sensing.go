@@ -1,4 +1,15 @@
-//Context SDK Golang - v0.9.2
+//
+// INTEL CONFIDENTIAL
+// Copyright 2017 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and your use of them is governed
+// by the express license under which they were provided to you (License). Unless the License provides otherwise,
+// you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
+// without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express or implied warranties, other than
+// those that are expressly stated in the License.
+//
 
 package sensing
 
@@ -9,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,11 +42,16 @@ type Sensing struct { // nolint: aligncheck
 	chanMutex sync.Mutex
 
 	//Sensing Vars
-	publish          bool
-	application      string
-	macAddress       string
-	server           string
+	publish     bool
+	application string
+	macAddress  string
+	server      string
+
+	// Commands
+	commandHandlers  map[int]core.CommandHandlerInfo
 	commandHandlerID int
+	nodeID           string
+	password         string
 
 	// Abstraction for talking to the clientInterface
 	clientInterface client.ClientInterface
@@ -97,6 +112,8 @@ func NewSensing() *Sensing {
 		eventCache: make(map[string]*core.ItemData),
 
 		logger: *logger.New("contextsdk", logger.JSONFormat, os.Stdout, logger.DebugLevel),
+
+		commandHandlers: make(map[int]core.CommandHandlerInfo),
 	}
 
 	return &sensing
@@ -124,16 +141,22 @@ func (sensing *Sensing) Start(options core.SensingOptions) { // nolint: gocyclo
 
 	sensing.server = options.Server
 
-	sensing.clientInterface = client.NewWebSocketsClient(options, sensing.clientItemChan, options.OnError)
+	sensing.clientInterface = client.NewWebSocketsClient(options, sensing.clientItemChan, options.OnError, sensing)
 
 	if sensing.clientInterface == nil {
 		sensing.startedC <- &core.SensingStarted{Started: false}
 		return
 	}
 
+	sensing.nodeID = options.NodeID
+	sensing.password = options.Password
+
 	sensing.publish = options.Publish
 
 	sensing.useCache = options.UseCache
+
+	builtIns := &builtinCommands{}
+	sensing.EnableCommands(builtIns, map[string]interface{}{"publish": true, "sensing": sensing})
 
 	sensingStarted := func() {
 		started := core.SensingStarted{Started: true}
@@ -227,6 +250,19 @@ func (sensing *Sensing) GetProviders() map[int][]string {
 	return result
 }
 
+func (sensing *Sensing) isPublishing(providerID int) bool {
+	sensing.dispMutex.Lock()
+	defer sensing.dispMutex.Unlock()
+
+	for _, disp := range sensing.dispatchers {
+		if disp.providerID == providerID {
+			return disp.publish
+		}
+	}
+
+	return false
+}
+
 // Fill in the local provider item with the common fields before local distribution
 // and remote publishing
 func (sensing *Sensing) fillInItem(providerID int, item *core.ItemData) {
@@ -238,40 +274,10 @@ func (sensing *Sensing) fillInItem(providerID int, item *core.ItemData) {
 	}
 }
 
-// Close channels once dispatch is complete for the provider they are registered
-// for
-func (sensing *Sensing) closeContextTypeChannels(id int) {
-	sensing.chanMutex.Lock()
-	defer sensing.chanMutex.Unlock()
-
-	strID := fmt.Sprintf("%v", id)
-
-	for key, chs := range sensing.itemChannels {
-		// Separate out the provider string from the key
-		if strings.SplitN(key, ":", 2)[0] == strID {
-			for _, ch := range chs {
-				close(*ch)
-			}
-
-			delete(sensing.itemChannels, key)
-		}
-	}
-
-	for key, chs := range sensing.errChannels {
-		// Separate out the provider string from the key
-		if strings.SplitN(key, ":", 2)[0] == strID {
-			for _, ch := range chs {
-				close(*ch)
-			}
-			delete(sensing.errChannels, key)
-		}
-	}
-}
-
 // EnableSensing enables a specific local provider instance. All types this provider produces on its channel
 // will be sent to onItem. Any errors will be sent to onErr. The channels may be nil.\
 //
-// Returns an integer representing the local provider ID
+// Returns an integer representing the local provider ID, or -1 if the provider failed to start
 func (sensing *Sensing) EnableSensing(provider core.ProviderInterface, onItem core.ProviderItemChannel, onErr core.ErrorChannel) int { // nolint: gocyclo
 	sensing.dispMutex.Lock()
 	defer sensing.dispMutex.Unlock()
@@ -303,6 +309,17 @@ func (sensing *Sensing) EnableSensing(provider core.ProviderInterface, onItem co
 	// Must be buffered channels in case Start() writes item or err immediately
 	// otherwise it will block and never return
 	dispatcher.provider.Start(dispatcher.internalItemChannel, dispatcher.internalErrChannel)
+
+	select {
+	case err := <-dispatcher.internalErrChannel:
+		outErr := fmt.Errorf("Provider failed to start: %s", err.Error.Error())
+		sensing.logger.Error(outErr.Error(), nil)
+		delete(sensing.dispatchers, providerID)
+		sensing.dispacherID--
+		sensing.errC <- core.ErrorData{Error: outErr}
+		return -1
+	default:
+	}
 
 	// Flags to see if the provider has closed its channels
 	go func() {
@@ -404,6 +421,57 @@ func (sensing *Sensing) GetItem(providerID string, contextType string, useCache 
 	return nil
 }
 
+// ProcessCommand is an internal implementation of the CommandProcessor interface. It should not be
+// called directly
+func (sensing *Sensing) ProcessCommand(contextType string, params []interface{}, valueChan chan interface{}) {
+	handlerID := -1
+	for hID := range sensing.commandHandlers {
+		_, methodTypeFound := sensing.commandHandlers[hID].Methods[contextType]
+		if sensing.commandHandlers[hID].Publish && methodTypeFound {
+			handlerID = hID
+			break
+		}
+	}
+
+	if handlerID == -1 {
+		valueChan <- core.ErrorData{Error: errors.New("No handlers found for " + contextType)}
+		return
+	}
+
+	sensing.executeCommandHandler(handlerID, contextType, params, valueChan)
+}
+
+func (sensing *Sensing) executeCommandHandler(handlerID int, contextType string, params []interface{}, valueChan chan interface{}) {
+	localHandlerInfo, ok := sensing.commandHandlers[handlerID]
+	if !ok {
+		valueChan <- core.ErrorData{Error: errors.New("Unknown Handler: " + strconv.Itoa(handlerID))}
+	} else {
+		localHandlerMethod := localHandlerInfo.Methods[contextType]
+
+		// If the local command handler crashed, recover and report an error
+		var returnedValue interface{}
+		callDone := make(chan bool)
+		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					valueChan <- core.ErrorData{Error: fmt.Errorf("Command handler panicked! %v", err)}
+					callDone <- false
+					sensing.logger.StackTrace("Command handler panicked, recovered", err)
+					return
+				}
+				callDone <- true
+			}()
+
+			returnedValue = localHandlerMethod(params...)
+		}()
+		success := <-callDone
+
+		if success {
+			valueChan <- returnedValue
+		}
+	}
+}
+
 // Dispatch a local provider's item to other local providers and optionally
 // publish to the bus
 // nolint: gocyclo
@@ -445,7 +513,7 @@ func (dispatcher *localDispatcher) dispatch(providerID int, data interface{}) {
 			*channel <- err
 		}
 
-		if dispatcher.publish && dispatcher.sensing.clientInterface.IsConnected() { // nolint: staticcheck
+		if dispatcher.publish && dispatcher.sensing.clientInterface.IsConnected() { // nolint: megacheck
 			// TODO publish to clientInterface. Node version doesn't do this yet
 		}
 	default:
@@ -498,9 +566,9 @@ func (sensing *Sensing) EnableCommands(handler core.CommandHandlerInterface, han
 		Publish: false,
 	}
 	if publish, ok := handlerStartOptions["publish"]; ok {
-		handlerInfo.Publish = reflect.ValueOf(publish).Bool()
+		handlerInfo.Publish = publish.(bool)
 	}
-	sensing.clientInterface.SetCommandHandler(sensing.commandHandlerID, handlerInfo)
+	sensing.commandHandlers[sensing.commandHandlerID] = handlerInfo
 	handler.Start(handlerStartOptions)
 	returnID := sensing.commandHandlerID
 	sensing.commandHandlerID++
@@ -510,5 +578,9 @@ func (sensing *Sensing) EnableCommands(handler core.CommandHandlerInterface, han
 
 // SendCommand redirects the parameters to the clientInterface's SendCommand function
 func (sensing *Sensing) SendCommand(macAddress string, application string, handlerID int, method string, params []interface{}, valueChannel chan interface{}) {
-	sensing.clientInterface.SendCommand(macAddress, application, handlerID, method, params, valueChannel)
+	if macAddress == "" && application == "" {
+		sensing.executeCommandHandler(handlerID, method, params, valueChannel)
+	} else {
+		sensing.clientInterface.SendCommand(macAddress, application, method, params, valueChannel)
+	}
 }
