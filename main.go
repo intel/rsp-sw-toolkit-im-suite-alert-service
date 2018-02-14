@@ -25,6 +25,7 @@ import (
 	"context_linux_go/core"
 	"context_linux_go/core/sensing"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,6 +37,7 @@ import (
 	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/routes"
+	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/pkg/healthcheck"
 )
 
 const (
@@ -45,38 +47,21 @@ const (
 	connectionTimeout = 15
 )
 
-// initConfig will initialize our configuration parameters
-func initConfig() {
-	// Load config variables
-	if err := config.InitConfig(); err != nil {
-		log.WithFields(log.Fields{
-			"Method": "config.InitConfig",
-			"Action": "Load config",
-		}).Fatal(err.Error())
-	}
-
-	if config.AppConfig.LoggingLevel == "debug" {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetFormatter(&log.JSONFormatter{})
-	}
-}
-
 // nolint: gocyclo
 func initSensing() {
 	onSensingStarted := make(core.SensingStartedChannel, 1)
 	onSensingError := make(core.ErrorChannel, 1)
 
 	sensingOptions := core.SensingOptions{
-		Server:        config.AppConfig.ContextSensing,
-		Publish:       true,
+		Server:  config.AppConfig.ContextSensing,
+		Publish: true,
 		Secure:  config.AppConfig.SecureMode,
 		SkipCertificateVerification: config.AppConfig.SkipCertVerify,
-		Application:   config.AppConfig.ServiceName,
-		OnStarted:     onSensingStarted,
-		OnError:       onSensingError,
-		Retries:       10,
-		RetryInterval: 1,
+		Application:                 config.AppConfig.ServiceName,
+		OnStarted:                   onSensingStarted,
+		OnError:                     onSensingError,
+		Retries:                     10,
+		RetryInterval:               1,
 	}
 
 	sensingSdk := sensing.NewSensing()
@@ -256,7 +241,20 @@ func postNotification(data interface{}, to string) error {
 
 func main() {
 
-	initConfig()
+	// Load config variables
+	if err := config.InitConfig(); err != nil {
+		log.WithFields(log.Fields{
+			"Method": "config.InitConfig",
+			"Action": "Load config",
+		}).Fatal(err.Error())
+	}
+
+	isHealthyPtr := flag.Bool("isHealthy", false, "a bool, runs a healthcheck")
+	flag.Parse()
+
+	if *isHealthyPtr {
+		os.Exit(healthcheck.Healthcheck(config.AppConfig.Port))
+	}
 
 	log.WithFields(log.Fields{
 		"Method": "main",
@@ -272,7 +270,7 @@ func main() {
 
 	// Create a new server and set timeout values.
 	server := http.Server{
-		Addr:           ":8080",
+		Addr:           ":" + config.AppConfig.Port,
 		Handler:        router,
 		ReadTimeout:    900 * time.Second,
 		WriteTimeout:   900 * time.Second,

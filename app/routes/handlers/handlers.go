@@ -30,9 +30,9 @@ import (
 type Alerts struct {
 }
 
-// GetIndex retrieves the index file
-// 200 OK
+// Index verifies check health
+// nolint :unparam
 func (alerts *Alerts) GetIndex(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
-	web.RespondHTML(writer, "RFID Alert Service", "RFID Alert Service is running", http.StatusOK)
+	web.Respond(ctx, writer, "RFID Alert Service", http.StatusOK)
 	return nil
 }

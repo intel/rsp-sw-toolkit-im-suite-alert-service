@@ -42,7 +42,7 @@ func NewRouter() *mux.Router {
 
 	var routes = []Route{
 		{
-			"home",
+			"Index",
 			"GET",
 			"/",
 			alerts.GetIndex,

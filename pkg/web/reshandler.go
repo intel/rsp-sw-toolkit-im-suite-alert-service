@@ -1,26 +1,6 @@
-/*
- * INTEL CONFIDENTIAL
- * Copyright (2017) Intel Corporation.
- *
- * The source code contained or described herein and all documents related to the source code ("Material")
- * are owned by Intel Corporation or its suppliers or licensors. Title to the Material remains with
- * Intel Corporation or its suppliers and licensors. The Material may contain trade secrets and proprietary
- * and confidential information of Intel Corporation and its suppliers and licensors, and is protected by
- * worldwide copyright and trade secret laws and treaty provisions. No part of the Material may be used,
- * copied, reproduced, modified, published, uploaded, posted, transmitted, distributed, or disclosed in
- * any way without Intel/'s prior express written permission.
- * No license under any patent, copyright, trade secret or other intellectual property right is granted
- * to or conferred upon you by disclosure or delivery of the Materials, either expressly, by implication,
- * inducement, estoppel or otherwise. Any license under such intellectual property rights must be express
- * and approved by Intel in writing.
- * Unless otherwise agreed by Intel in writing, you may not remove or alter this notice or any other
- * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
- */
-
 package web
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -30,6 +10,7 @@ import (
 )
 
 // JSONError is the response for errors that occur within the API.
+// swagger:response internalError
 type JSONError struct {
 	Error string `json:"error"`
 }
@@ -86,7 +67,7 @@ func Error(ctx context.Context, writer http.ResponseWriter, err error) {
 	log.WithFields(log.Fields{
 		"Method":     contextValues.Method,
 		"RequestURI": contextValues.RequestURI,
-		"TraceID":    contextValues.TraceID,
+		"TracerID":   contextValues.TraceID,
 		"Code":       http.StatusInternalServerError,
 		"Error":      err.Error(),
 	}).Error("Server error")
@@ -98,16 +79,20 @@ func Error(ctx context.Context, writer http.ResponseWriter, err error) {
 
 // RespondError sends JSON describing the error
 func RespondError(ctx context.Context, writer http.ResponseWriter, err error, code int) {
-	RespondJSON(ctx, writer, JSONError{Error: err.Error()}, code)
+	Respond(ctx, writer, JSONError{Error: err.Error()}, code)
 }
 
-// RespondJSON sends JSON to the client
-func RespondJSON(ctx context.Context, writer http.ResponseWriter, data interface{}, code int) {
+// Respond sends JSON to the client.
+// If code is StatusNoContent, v is expected to be nil.
+func Respond(ctx context.Context, writer http.ResponseWriter, data interface{}, code int) {
 
 	// Just set the status code and we are done.
-	if code == http.StatusNoContent || (code == http.StatusOK && data == nil) {
+	if code == http.StatusNoContent {
 		writer.WriteHeader(code)
 		return
+	}
+	if code == http.StatusCreated && data == nil {
+		data = "Insert Successful"
 	}
 
 	tracerID := ctx.Value(KeyValues).(*ContextValues).TraceID
@@ -131,35 +116,5 @@ func RespondJSON(ctx context.Context, writer http.ResponseWriter, data interface
 	}
 
 	// Send the result back to the client.
-	_, err = writer.Write(jsonData)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"Method":   "web.response",
-			"Action":   "MarshalIndent",
-			"TracerId": tracerID,
-			"Error":    err.Error(),
-		}).Error("Error writing JSON response")
-	}
-}
-
-// RespondHTML sends HTML to the client.
-// If code is StatusNoContent, body is expected to be nil.
-func RespondHTML(writer http.ResponseWriter, title string, body string, code int) {
-	// Set the content type.
-	writer.Header().Set("Content-Type", "text/html")
-
-	// Write the status code to the response
-	writer.WriteHeader(code)
-	var buffer bytes.Buffer
-	buffer.WriteString("<!DOCTYPE html><html><head><title>")
-	buffer.WriteString(title)
-	buffer.WriteString("</title></head><body>")
-	buffer.WriteString(body)
-	buffer.WriteString("</body></html>")
-
-	_, err := writer.Write(buffer.Bytes())
-	if err != nil {
-		log.Printf("Failed to write the response body: %v", err)
-		return
-	}
+	_, _ = writer.Write(jsonData)
 }
