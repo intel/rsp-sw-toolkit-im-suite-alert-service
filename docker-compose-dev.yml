@@ -1,11 +1,10 @@
 version: "3"
 networks:
   main:
-
 services:
   #CSSDK Broker
   contextbroker:
-    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/context-broker:v0.11.0"
+    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/context-broker:v0.14.0"
     logging:
       driver: "none"
     networks:
@@ -44,12 +43,12 @@ services:
     ports:
       - 27018:27017
   #rfid alert service
-  rfid-alert:
-    build: ./
-    ports:
-      - 8084:8080
-    networks:
-      main:
-    depends_on:
-      - contextbroker
-    restart: always
+  # rfid-alert:
+  #   build: ./
+  #   ports:
+  #     - 8084:8080
+  #   networks:
+  #     main:
+  #   depends_on:
+  #     - contextbroker
+  #   restart: always
