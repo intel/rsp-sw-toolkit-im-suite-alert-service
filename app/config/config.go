@@ -73,17 +73,17 @@ func InitConfig() error {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
-	// AppConfig.SecureMode, err = config.GetBool("secureMode")
-	// if err != nil {
-	// 	AppConfig.SecureMode = false
-	// 	err = nil
-	// }
+	AppConfig.SecureMode, err = config.GetBool("secureMode")
+	if err != nil {
+		AppConfig.SecureMode = false
+		err = nil
+	}
 
-	// AppConfig.SkipCertVerify, err = config.GetBool("skipCertVerify")
-	// if err != nil {
-	// 	AppConfig.SkipCertVerify = false
-	// 	err = nil
-	// }
+	AppConfig.SkipCertVerify, err = config.GetBool("skipCertVerify")
+	if err != nil {
+		AppConfig.SkipCertVerify = false
+		err = nil
+	}
 
 	AppConfig.Port, err = config.GetString("port")
 	if err != nil {

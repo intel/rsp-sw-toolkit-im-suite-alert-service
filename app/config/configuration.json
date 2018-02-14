@@ -1,10 +1,12 @@
 {
-  "serviceName": "RRP - RFID Alert Service",  
+  "serviceName": "RRP - RFID-Alert-service",  
   "port": "8080",
   "contextSensing": "127.0.0.1:8888",
   "watchdogMinutes": 1,
   "maxMissedHeartbeats": 2,
   "loggingLevel": "debug",
   "sendHeartbeatTo": "http://localhost:9005/heartbeat",
-  "sendAlertTo":"http://localhost:9005/alert"
+  "sendAlertTo":"http://localhost:9005/alert",
+  "secureMode" : false,
+  "skipCertVerify" : false
 }
