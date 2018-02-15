@@ -1,5 +1,5 @@
 {
-  "serviceName": "RRP - RFID-Alert-service",  
+  "serviceName": "RRP - RFID Alert service",  
   "port": "8080",
   "contextSensing": "127.0.0.1:8888",
   "watchdogMinutes": 1,
