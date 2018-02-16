@@ -20,7 +20,7 @@ type Configuration struct {
 	parsedJson map[string]interface{}
 }
 
-func NewConfiguration() *Configuration {
+func NewConfiguration() (*Configuration, error) {
 	config := Configuration{}
 
 	_, filename, _, ok := runtime.Caller(1)
@@ -29,13 +29,20 @@ func NewConfiguration() *Configuration {
 	}
 
 	absolutePath := path.Join(path.Dir(filename), "configuration.json")
+	fmt.Println(absolutePath)
 
 	// By default load local configuration file if it exists
-	if _, err := os.Stat(absolutePath); err == nil {
-		config.Load(absolutePath)
+	if _, err := os.Stat(absolutePath); err != nil {
+		absolutePath, ok = os.LookupEnv("runtimeConfigPath")
+		if !ok {
+			absolutePath = "/run/secrets/configuration.json"
+		}
+		if _, err := os.Stat(absolutePath); err != nil {
+			return nil, fmt.Errorf("specified runtime config file does not exist: %v", err.Error())
+		}
 	}
-
-	return &config
+	config.Load(absolutePath)
+	return &config, nil
 }
 
 func (config *Configuration) Load(path string) error {
@@ -75,13 +82,6 @@ func (config *Configuration) GetString(path string) (string, error) {
 	}
 
 	return value, nil
-}
-
-// This function will try to get the requested path,
-// Note: will return "" (empty string) if requested path is not found
-func (config *Configuration) GetStringOptional(path string) string {
-	returnedString, _ := config.GetString(path)
-	return returnedString
 }
 
 func (config *Configuration) GetInt(path string) (int, error) {

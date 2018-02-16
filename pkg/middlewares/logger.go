@@ -37,14 +37,15 @@ func Logger(next web.Handler) web.Handler {
 		start := time.Now()
 		err := next(ctx, writer, request)
 
-		log.WithFields(log.Fields{
-			"Method":     request.Method,
-			"RequestURI": request.RequestURI,
-			"Duration":   time.Since(start),
-			"TracerId":   tracerID,
-		}).Debug("Http Logger middleware")
-
-		// return the error even if it is nil
+		if request.URL.EscapedPath() != "/" {
+			log.WithFields(log.Fields{
+				"Method":     request.Method,
+				"RequestURI": request.RequestURI,
+				"Duration":   time.Since(start),
+				"TracerId":   tracerID,
+			}).Debug("Http Logger middleware")
+		}
+		// return err since it will contain the error or nil
 		return err
 	})
 }

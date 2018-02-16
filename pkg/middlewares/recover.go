@@ -23,7 +23,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-
 	"runtime/debug"
 
 	log "github.com/sirupsen/logrus"
@@ -33,7 +32,7 @@ import (
 // Recover middleware
 func Recover(next web.Handler) web.Handler {
 	return web.Handler(func(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
-		// Recover from any panic and log error
+		// Recover from any panic
 		defer func() {
 			if r := recover(); r != nil {
 				traceID := ctx.Value(web.KeyValues).(*web.ContextValues).TraceID
@@ -50,10 +49,9 @@ func Recover(next web.Handler) web.Handler {
 				web.RespondError(ctx, writer, errors.New("an error has occurred"), http.StatusInternalServerError)
 			}
 		}()
+
 		// Go to the next http handler
 		err := next(ctx, writer, request)
-
-		// return the error even if it is nil
 		return err
 	})
 }

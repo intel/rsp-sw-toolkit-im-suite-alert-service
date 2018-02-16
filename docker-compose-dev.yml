@@ -1,11 +1,10 @@
 version: "3"
 networks:
   main:
-
 services:
   #CSSDK Broker
   contextbroker:
-    image: "hub.docker.intel.com/responsive-retail-mvp/context-broker:latest"
+    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/context-broker:v0.14.0"
     logging:
       driver: "none"
     networks:
@@ -13,35 +12,24 @@ services:
         aliases:
           - broker
     environment:
-      MONGODB_HOST: rrpmongo
+      MONGODB_HOST: "mongo"
+      MONGODB_PORT: "27017"
     ports:
       - 8888:8888
     depends_on:
       - rrpmongo
   #rfid-data microservice, listens to RRS GW and puts data on to ContextSensingBus
   rfid-data:
-    image: "hub.docker.intel.com/responsive-retail-mvp/rrp-contextsdk-level1:v0.9.1-updated"
-    environment:
-      RETRIES: 10
-      RETRY_INTERVAL: 1
-      GATEWAY_MQTT_IP: 172.1.1.60
-      #10.2.58.31
-      GATEWAY_MQTT_PORT: 1883
-    command: ["--server", "broker:8888", "--gateway", "${GATEWAY_MQTT_IP:-172.17.0.1}:${GATEWAY_MQTT_PORT:-1883}"]
+    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/rrs-rfid-provider:v0.9.4"
+    command: ["--server", "contextbroker:8888", "--gateway", "rrptavern.ch.intel.com:1883"]
     networks:
       main:
+    logging:
+      options:
+        max-size: "1000m"
+        max-file: "5"
     depends_on:
       - contextbroker
-    restart: always
-  #Notification microservice
-  notification:
-    build: ../notification-service
-    ports:
-      - 8083:8080
-    environment:
-      serviceName: "RRP(go) - notification-service"
-    networks:
-      main:
     restart: always
   #Mongodb
   rrpmongo:
@@ -54,19 +42,13 @@ services:
       - ./data:/data/db
     ports:
       - 27018:27017
-  
   #rfid alert service
-#  rfid-alert:
-#       build: .
-#    ports:
-#      - 8084:8080
-#    environment:
-#      serviceName: "RRP - RFID Alert Serivce"
-#      contextSensing: broker:8888
-#      watchdogMinutes: 3
-#      loggingLevel: "debug"
-#    networks:
-#      main:
-#    depends_on:
-#      - broker
-#    restart: always
+  # rfid-alert:
+  #   build: ./
+  #   ports:
+  #     - 8084:8080
+  #   networks:
+  #     main:
+  #   depends_on:
+  #     - contextbroker
+  #   restart: always

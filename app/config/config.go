@@ -26,10 +26,10 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing string
-		SendHeartbeatTo, SendAlertTo, SendEventTo string
-		WatchdogMinutes, MaxMissedHeartbeats      int
-		SecureMode, SkipCertVerify                bool
+		ServiceName, LoggingLevel, ContextSensing, Port string
+		SendHeartbeatTo, SendAlertTo, SendEventTo       string
+		WatchdogMinutes, MaxMissedHeartbeats            int
+		SecureMode, SkipCertVerify                      bool
 	}
 )
 
@@ -43,7 +43,10 @@ func InitConfig() error {
 
 	var err error
 
-	var config = *configuration.NewConfiguration()
+	config, err := configuration.NewConfiguration()
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
 
 	AppConfig.ServiceName, err = config.GetString("serviceName")
 	if err != nil {
@@ -82,8 +85,16 @@ func InitConfig() error {
 		err = nil
 	}
 
+	AppConfig.Port, err = config.GetString("port")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
 	// Set "debug" for development purposes. Nil for Production.
-	AppConfig.LoggingLevel = config.GetStringOptional("loggingLevel")
+	AppConfig.LoggingLevel, err = config.GetString("loggingLevel")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
 
 	return nil
 }

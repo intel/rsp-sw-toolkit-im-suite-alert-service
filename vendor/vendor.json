@@ -9,6 +9,24 @@
 			"revisionTime": "2017-06-21T21:27:26Z"
 		},
 		{
+			"checksumSHA1": "Iik1FlR2MXRTm9R/zr21mcO3XH0=",
+			"path": "github.com/influxdata/influxdb/client",
+			"revision": "56b4a91acfc93bb33a140fd05e05d54070f9d0db",
+			"revisionTime": "2018-02-13T14:15:30Z"
+		},
+		{
+			"checksumSHA1": "XrwfQQkKEf4VtkXq5bKc4CICiuU=",
+			"path": "github.com/influxdata/influxdb/models",
+			"revision": "56b4a91acfc93bb33a140fd05e05d54070f9d0db",
+			"revisionTime": "2018-02-13T14:15:30Z"
+		},
+		{
+			"checksumSHA1": "Z0Bb5PWa5WL/j5Dm2KJCLGn1l7U=",
+			"path": "github.com/influxdata/influxdb/pkg/escape",
+			"revision": "56b4a91acfc93bb33a140fd05e05d54070f9d0db",
+			"revisionTime": "2018-02-13T14:15:30Z"
+		},
+		{
 			"checksumSHA1": "rJab1YdNhQooDiBWNnt7TLWPyBU=",
 			"path": "github.com/pkg/errors",
 			"revision": "c605e284fe17294bda444b34710735b29d1a9d90",
@@ -21,9 +39,11 @@
 			"revisionTime": "2017-06-20T14:45:10Z"
 		},
 		{
-			"checksumSHA1": "4tVkyUfFFEJCpP2UPeaUwRRjh/8=",
+			"checksumSHA1": "Ggd4RKprCI4YRDqDPSZm1HZXqAk=",
+			"origin": "github.impcloud.net/Responsive-Retail-MVP/utilities.git",
 			"path": "github.impcloud.net/Responsive-Retail-MVP/utilities",
-			"revision": "",
+			"revision": "d7b20fec85fd95671c161161b620b5be30594d57",
+			"revisionTime": "2018-02-07T22:41:10Z",
 			"tree": true
 		}
 	],
