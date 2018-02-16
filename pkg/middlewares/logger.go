@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/pkg/web"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
 
 	log "github.com/sirupsen/logrus"
 )

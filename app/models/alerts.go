@@ -20,7 +20,7 @@
 package models
 
 import (
-	"github.impcloud.net/Responsive-Retail-MVP/utilities/helper"
+	"github.impcloud.net/Responsive-Retail-Inventory/utilities/helper"
 )
 
 // Alert is the base data that is provided in an alert
