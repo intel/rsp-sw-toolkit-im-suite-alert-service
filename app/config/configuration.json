@@ -5,8 +5,8 @@
   "watchdogMinutes": 1,
   "maxMissedHeartbeats": 2,
   "loggingLevel": "debug",
-  "sendHeartbeatTo": "http://localhost:9005/heartbeat",
-  "sendAlertTo":"http://localhost:9005/alert",
+  "sendHeartbeatTo": "http://rrsnotification:9005/heartbeat",
+  "sendAlertTo":"http://rrsnotification:9005/alert",
   "secureMode" : false,
   "skipCertVerify" : false
 }

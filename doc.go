@@ -1,6 +1,6 @@
 // RFID Alert Service API
 //
-// RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint in configuration.json.
+// RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint.
 // In a similar way, alert events are processed and posted to the respective configured REST endpoint.
 //
 //  __Configuration Values__
@@ -21,19 +21,26 @@
 //
 // <pre><b>Example configuration file json
 // &#9{
-// &#9&#9"serviceName": "RRP - RFID-Alert-service",
+// &#9&#9"serviceName": "RRP - RFID Alert service",
 // &#9&#9"loggingLevel": "debug",
 // &#9&#9"port": "8080",
 // &#9&#9"watchdogMinutes" : 1,
 // &#9&#9"maxMissedHeartbeats" : 2,
 // &#9&#9"contextSenisng" : "127.0.0.1:8888",
-// &#9&#9"sendHeartBeatTo" : "http://localhost:9005/heartbeat",
-// &#9&#9"sendAlertTo" : "http://localhost:9005/alert",
+// &#9&#9"sendHeartBeatTo" : "http://rrsnotification:9005/heartbeat",
+// &#9&#9"sendAlertTo" : "http://rrsnotification:9005/alert",
 // &#9}
 // </b></pre>
 // <pre><b>Example environment variables in compose file
 // &#9runtimeConfigPath: "/data/configs/rfid-alert.json"
 // </b></pre>
+// </blockquote>
+//
+//	   __Secrets__
+// The following values/files are passed to the service via Docker Secrets
+//<blockquote>
+// <blockquote>•<b> configuration.json</b> - Configuration file referenced above</blockquote>
+//</blockquote>
 //
 // __Known services this service depends on:__
 // ○ Context Sensing
@@ -42,8 +49,8 @@
 // ○ None
 //
 // Schemes: http, https
-// Host: RFID-Alert-service:8080
-//   Contact: RRP <rrp@intel.com>
+// Host: rfid-alert-service:8080
+//      Contact: RRP <rrp@intel.com>
 // BasePath: /
 // Version: 0.0.1
 //

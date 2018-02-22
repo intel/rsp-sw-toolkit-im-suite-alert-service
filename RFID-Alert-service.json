@@ -11,7 +11,7 @@
   ],
   "swagger": "2.0",
   "info": {
-    "description": "RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint in configuration.json.\nIn a similar way, alert events are processed and posted to the respective configured REST endpoint.\n\n__Configuration Values__\n\u003cblockquote\u003eRFID Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.\n\u003cblockquote\u003e\u003cb\u003eConfiguration file values\u003c/b\u003e\n\u003cblockquote\u003e•\u003cb\u003e serviceName\u003c/b\u003e - Runtime name of the service.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e loggingLevel\u003c/b\u003e - Logging level to use: \"info\" (default) or \"debug\" (verbose).\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e port\u003c/b\u003e - Port to run the service's HTTP Server on.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e watchdogMinutes\u003c/b\u003e - Time interval set to check the status of registered gateways\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e maxMissedHeartbeats\u003c/b\u003e - Maximum heart beats that a gateway can miss before getting deregistered.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e sendHeartbeatTo\u003c/b\u003e - Endpoint to send the processed heart beat.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e sendAlertTo\u003c/b\u003e - Endpoint to send the processed alert.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e contextSensing\u003c/b\u003e - Host and port number for the Context Broker.\u003c/blockquote\u003e\n\u003c/blockquote\u003e\n\u003cblockquote\u003e\u003cb\u003eCompose file environment variable values\u003c/b\u003e\n\u003cblockquote\u003e•\u003cb\u003e runtimeConfigPath\u003c/b\u003e - Path to the configuration file to use at runtime.\u003c/blockquote\u003e\n\u003c/blockquote\u003e\n\n\u003cpre\u003e\u003cb\u003eExample configuration file json\n\u0026#9{\n\u0026#9\u0026#9\"serviceName\": \"RRP - RFID-Alert-service\",\n\u0026#9\u0026#9\"loggingLevel\": \"debug\",\n\u0026#9\u0026#9\"port\": \"8080\",\n\u0026#9\u0026#9\"watchdogMinutes\" : 1,\n\u0026#9\u0026#9\"maxMissedHeartbeats\" : 2,\n\u0026#9\u0026#9\"contextSenisng\" : \"127.0.0.1:8888\",",
+    "description": "RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint.\nIn a similar way, alert events are processed and posted to the respective configured REST endpoint.\n\n__Configuration Values__\n\u003cblockquote\u003eRFID Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.\n\u003cblockquote\u003e\u003cb\u003eConfiguration file values\u003c/b\u003e\n\u003cblockquote\u003e•\u003cb\u003e serviceName\u003c/b\u003e - Runtime name of the service.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e loggingLevel\u003c/b\u003e - Logging level to use: \"info\" (default) or \"debug\" (verbose).\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e port\u003c/b\u003e - Port to run the service's HTTP Server on.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e watchdogMinutes\u003c/b\u003e - Time interval set to check the status of registered gateways\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e maxMissedHeartbeats\u003c/b\u003e - Maximum heart beats that a gateway can miss before getting deregistered.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e sendHeartbeatTo\u003c/b\u003e - Endpoint to send the processed heart beat.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e sendAlertTo\u003c/b\u003e - Endpoint to send the processed alert.\u003c/blockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e contextSensing\u003c/b\u003e - Host and port number for the Context Broker.\u003c/blockquote\u003e\n\u003c/blockquote\u003e\n\u003cblockquote\u003e\u003cb\u003eCompose file environment variable values\u003c/b\u003e\n\u003cblockquote\u003e•\u003cb\u003e runtimeConfigPath\u003c/b\u003e - Path to the configuration file to use at runtime.\u003c/blockquote\u003e\n\u003c/blockquote\u003e\n\n\u003cpre\u003e\u003cb\u003eExample configuration file json\n\u0026#9{\n\u0026#9\u0026#9\"serviceName\": \"RRP - RFID Alert service\",\n\u0026#9\u0026#9\"loggingLevel\": \"debug\",\n\u0026#9\u0026#9\"port\": \"8080\",\n\u0026#9\u0026#9\"watchdogMinutes\" : 1,\n\u0026#9\u0026#9\"maxMissedHeartbeats\" : 2,\n\u0026#9\u0026#9\"contextSenisng\" : \"127.0.0.1:8888\",\n\u0026#9\u0026#9\"sendHeartBeatTo\" : \"http://rrsnotification:9005/heartbeat\",\n\u0026#9\u0026#9\"sendAlertTo\" : \"http://rrsnotification:9005/alert\",\n\u0026#9}\n\u003c/b\u003e\u003c/pre\u003e\n\u003cpre\u003e\u003cb\u003eExample environment variables in compose file\n\u0026#9runtimeConfigPath: \"/data/configs/rfid-alert.json\"\n\u003c/b\u003e\u003c/pre\u003e\n\u003c/blockquote\u003e\n\n__Secrets__\nThe following values/files are passed to the service via Docker Secrets\n\u003cblockquote\u003e\n\u003cblockquote\u003e•\u003cb\u003e configuration.json\u003c/b\u003e - Configuration file referenced above\u003c/blockquote\u003e\n\u003c/blockquote\u003e\n\n__Known services this service depends on:__\n○ Context Sensing\n\n__Known services that depend upon this service:__\n○ None",
     "title": "RFID Alert Service API",
     "contact": {
       "name": "RRP",
@@ -19,9 +19,34 @@
     },
     "version": "0.0.1"
   },
-  "host": "9005/heartbeat\",",
+  "host": "rfid-alert-service:8080",
   "basePath": "/",
-  "paths": {},
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Endpoint that is used to determine if the application is ready to take web requests, i.e is healthy",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http"
+        ],
+        "tags": [
+          "default"
+        ],
+        "summary": "Healthcheck Endpoint",
+        "operationId": "Healthcheck",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
   "responses": {
     "internalError": {
       "description": "JSONError is the response for errors that occur within the API.",

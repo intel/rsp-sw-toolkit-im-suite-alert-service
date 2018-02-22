@@ -40,6 +40,26 @@ func NewRouter() *mux.Router {
 
 	alerts := handlers.Alerts{}
 
+	// swagger:operation GET / default Healthcheck
+	//
+	// Healthcheck Endpoint
+	//
+	// Endpoint that is used to determine if the application is ready to take web requests, i.e is healthy
+	//
+	// ---
+	// consumes:
+	// - application/json
+	//
+	// produces:
+	// - application/json
+	//
+	// schemes:
+	// - http
+	//
+	// responses:
+	//   '200':
+	//     description: OK
+	//
 	var routes = []Route{
 		{
 			"Index",
