@@ -39,19 +39,19 @@ Use the following commands to generate and validate your swagger once you have i
  
   then run:
   
- `swagger generate spec -m -o my-new-service.json`
+ `swagger generate spec -m -o RFID-Alert-service.json`
  
  #### Validate Generated Swagger Doc
  Run the following swagger command to validate the generated swagger JSON documentation file:
  
  `swagger validate ./RFID-Alert-service.json`
  
- Alternatively, the online swagger editor webpage (https://editor.swagger.io/) can also be used to validate the generated documentation. Just copy and paste the contents of JSON `my-new-service.json` onto the editing area of that webpage.
+ Alternatively, the online swagger editor webpage (https://editor.swagger.io/) can also be used to validate the generated documentation. Just copy and paste the contents of JSON `RFID-Alert-service.json` onto the editing area of that webpage.
  
  
 ## Docker Image
 The code pipeline will build the service and create the docker image and push it to: 
 
-```280211473891.dkr.ecr.us-west-2.amazonaws.com/my-new-service```
+```280211473891.dkr.ecr.us-west-2.amazonaws.com/RFID-Alert-service```
 
 Copyright 2018 Intel(R) Corporation, All rights reserved.
