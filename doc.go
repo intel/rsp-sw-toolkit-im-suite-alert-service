@@ -1,7 +1,7 @@
 // RFID Alert Service API
 //
 // RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint.
-// In a similar way, alert events are processed and posted to the respective configured REST endpoint.
+// In a similar way, alert events are processed and posted to the REST endpoint.
 //
 //  __Configuration Values__
 // <blockquote>RFID Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.
@@ -10,9 +10,9 @@
 // <blockquote>•<b> loggingLevel</b> - Logging level to use: "info" (default) or "debug" (verbose).</blockquote>
 // <blockquote>•<b> port</b> - Port to run the service's HTTP Server on.</blockquote>
 // <blockquote>•<b> watchdogMinutes</b> - Time interval set to check the status of registered gateways</blockquote>
-// <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that a gateway can miss before getting deregistered.</blockquote>
-// <blockquote>•<b> sendHeartbeatTo</b> - Endpoint to send the processed heart beat.</blockquote>
-// <blockquote>•<b> sendAlertTo</b> - Endpoint to send the processed alert.</blockquote>
+// <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that can be missed before the gateway gets deregistered.</blockquote>
+// <blockquote>•<b> sendHeartbeatTo</b> - Endpoint to send processed heart beat.</blockquote>
+// <blockquote>•<b> sendAlertTo</b> - Endpoint to send processed alert.</blockquote>
 // <blockquote>•<b> contextSensing</b> - Host and port number for the Context Broker.</blockquote>
 // </blockquote>
 // <blockquote><b>Compose file environment variable values</b>
