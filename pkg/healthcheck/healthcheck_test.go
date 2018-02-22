@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/config"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 )
 
 var status = "healthy"

@@ -23,7 +23,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/pkg/web"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
 )
 
 // Alerts represents the User API method handler set.

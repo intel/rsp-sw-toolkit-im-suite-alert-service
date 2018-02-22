@@ -21,7 +21,7 @@ package config
 
 import (
 	"github.com/pkg/errors"
-	"github.impcloud.net/Responsive-Retail-MVP/utilities/configuration"
+	"github.impcloud.net/Responsive-Retail-Inventory/utilities/configuration"
 )
 
 type (

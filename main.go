@@ -34,10 +34,10 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/config"
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/models"
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/app/routes"
-	"github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service/pkg/healthcheck"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
 )
 
 const (

@@ -40,12 +40,12 @@
 		},
 		{
 			"checksumSHA1": "Ggd4RKprCI4YRDqDPSZm1HZXqAk=",
-			"origin": "github.impcloud.net/Responsive-Retail-MVP/utilities.git",
-			"path": "github.impcloud.net/Responsive-Retail-MVP/utilities",
+			"origin": "github.impcloud.net/Responsive-Retail-Inventory/utilities.git",
+			"path": "github.impcloud.net/Responsive-Retail-Inventory/utilities",
 			"revision": "d7b20fec85fd95671c161161b620b5be30594d57",
 			"revisionTime": "2018-02-07T22:41:10Z",
 			"tree": true
 		}
 	],
-	"rootPath": "github.impcloud.net/Responsive-Retail-MVP/rfid-alert-service"
+	"rootPath": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service"
 }
