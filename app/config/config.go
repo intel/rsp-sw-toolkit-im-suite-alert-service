@@ -28,7 +28,8 @@ type (
 	variables struct {
 		ServiceName, LoggingLevel, ContextSensing, Port string
 		SendHeartbeatTo, SendAlertTo, SendEventTo       string
-		WatchdogMinutes, MaxMissedHeartbeats            int
+		WatchdogSeconds                                 int
+		MaxMissedHeartbeats                             int
 		SecureMode, SkipCertVerify                      bool
 	}
 )
@@ -58,7 +59,7 @@ func InitConfig() error {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
-	AppConfig.WatchdogMinutes, err = config.GetInt("watchdogMinutes")
+	AppConfig.WatchdogSeconds, err = config.GetInt("watchdogSeconds")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
@@ -69,6 +70,11 @@ func InitConfig() error {
 	}
 
 	AppConfig.SendAlertTo, err = config.GetString("sendAlertTo")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.MaxMissedHeartbeats, err = config.GetInt("maxMissedHeartbeats")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

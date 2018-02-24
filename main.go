@@ -26,7 +26,6 @@ import (
 	"context_linux_go/core/sensing"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -123,34 +122,36 @@ func initSensing() {
 var gw models.GatewayStatus
 var defaulttime = time.Time{}
 
-func initGatewayStatusCheck(watchdogMinutes int) {
+func initGatewayStatusCheck(WatchdogSeconds int) {
 
 	gw.RegistrationStatus = models.Pending
 	gw.MissedHeartBeats = 0
 	gw.LastHeartbeatSeen = defaulttime
 
 	for {
-		<-time.After(time.Duration(watchdogMinutes) * time.Minute)
+		<-time.After(time.Duration(WatchdogSeconds) * time.Second)
 		if gw.RegistrationStatus == models.Registered {
 			// we only care about GWs that are currently registered
 			if gw.LastHeartbeatSeen != defaulttime {
 				// we have seen a HB before,
 				// see if the timespan has expired
-				if time.Since(gw.LastHeartbeatSeen) > time.Duration(watchdogMinutes)*time.Minute {
+				if time.Since(gw.LastHeartbeatSeen) > time.Duration(WatchdogSeconds)*time.Second {
 					gw.MissedHeartBeats = gw.MissedHeartBeats + 1
 					if gw.MissedHeartBeats >= config.AppConfig.MaxMissedHeartbeats {
 						// we have missed the maximum amount of heartbeats
-						// set this gateway to deregistered
-						gw.RegistrationStatus = models.Deregistered
+						// set this gateway to pending and send deregistered alert
+						gw.RegistrationStatus = models.Pending
 						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
 						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+							log.Errorf("Problem sending GatewayDeregistered Alert: %s", err)
 						}
+						log.Debug("Gateway Deregistered")
 					} else {
 						gwMissedHB := models.NewGatewayMissedHeartbeatAlert(gw.LastHeartbeat)
 						if err := postNotification(gwMissedHB, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+							log.Errorf("Problem sending Missed heartbeat Alert: %s", err)
 						}
+						log.Debug("Missed heartbeat")
 					}
 				}
 			}
@@ -184,11 +185,10 @@ func processHeartbeat(jsonBytes *[]byte) error {
 	var hb models.HeartBeatMessage
 	err := json.Unmarshal(*jsonBytes, &hb)
 	if err != nil {
-		fmt.Println("error parsing Heartbeat:", err)
+		log.Errorf("error parsing Heartbeat: %s", err)
 	}
 
 	updateGatewayStatus(hb)
-
 	heartbeatEndpoint := config.AppConfig.SendHeartbeatTo
 	if err := postNotification(jsoned, heartbeatEndpoint); err != nil {
 		log.Errorf("Problem sending Heartbeat: %s", err)
@@ -236,6 +236,7 @@ func postNotification(data interface{}, to string) error {
 			}
 		}()
 	}
+	log.Debug("Notification posted")
 	return nil
 }
 
@@ -263,7 +264,7 @@ func main() {
 
 	initSensing()
 
-	go initGatewayStatusCheck(config.AppConfig.WatchdogMinutes)
+	go initGatewayStatusCheck(config.AppConfig.WatchdogSeconds)
 
 	// Start Webserver
 	router := routes.NewRouter()

@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -31,6 +32,16 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )
+
+func TestMain(m *testing.M) {
+	if err := config.InitConfig(); err != nil {
+		log.WithFields(log.Fields{
+			"Method": "config.InitConfig",
+			"Action": "Load config",
+		}).Fatal(err.Error())
+	}
+	os.Exit(m.Run())
+}
 
 func Test_processAlert(t *testing.T) {
 	testMockServer, serverErr := getTestMockServer()
@@ -43,6 +54,27 @@ func Test_processAlert(t *testing.T) {
 	alertError := processAlert(inputData)
 	if alertError != nil {
 		t.Errorf("Error processing alerts %s", alertError)
+	}
+}
+
+func Test_processHeartbeat(t *testing.T) {
+	var AppConfig = config.AppConfig
+	AppConfig.WatchdogSeconds = 1
+	go initGatewayStatusCheck(config.AppConfig.WatchdogSeconds)
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+
+	for i := 0; i < 3; i++ {
+		inputData := mockGenerateHeartBeats()
+		alertError := processHeartbeat(inputData)
+		if alertError != nil {
+			t.Errorf("Error processing alerts %s", alertError)
+		}
+		time.Sleep(3 * time.Second)
+
 	}
 }
 
@@ -65,14 +97,7 @@ func getTestMockServer() (*httptest.Server, error) {
 			_, _ = writer.Write(jsonData)
 		}
 	}))
-
-	if err := config.InitConfig(); err != nil {
-		log.WithFields(log.Fields{
-			"Method": "config.InitConfig",
-			"Action": "Load config",
-		}).Fatal(err.Error())
-	}
-	AppConfig := config.AppConfig
+	var AppConfig = config.AppConfig
 	AppConfig.SendAlertTo = testServer.URL + "/alert"
 	AppConfig.SendHeartbeatTo = testServer.URL + "/hearbeat"
 	return testServer, serverErr
@@ -90,5 +115,28 @@ func mockGenerateAlerts() *[]byte {
 		MeshNodeID:       "MeshNodeID_45",
 	}
 	inputData, _ := json.Marshal(testAlert)
+	return &inputData
+}
+
+func mockGenerateHeartBeats() *[]byte {
+	testHeartBeatMessageValue := models.HeartBeatMessageValue{
+		DeviceID:             "rsdrrp",
+		Facilities:           []string{"front"},
+		FacilityGroupsCfg:    "auto-0310080051",
+		MeshID:               "MeshID78",
+		MeshNodeID:           "MeshNodeID78",
+		PersonalityGroupsCfg: "test",
+		ScheduleCfg:          "test",
+		ScheduleGroupsCfg:    "test",
+		SentOn:               1506532617643,
+	}
+	testHeartBeat := models.HeartBeatMessage{
+		MACAddress:  "02:42:ac:1a:00:05",
+		Application: "rsp_collector-service",
+		ProviderID:  -1,
+		Datetime:    time.Now(),
+		Details:     testHeartBeatMessageValue,
+	}
+	inputData, _ := json.Marshal(testHeartBeat)
 	return &inputData
 }
