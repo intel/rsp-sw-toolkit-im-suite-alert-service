@@ -58,24 +58,40 @@ func Test_processAlert(t *testing.T) {
 }
 
 func Test_processHeartbeat(t *testing.T) {
-	var AppConfig = config.AppConfig
-	AppConfig.WatchdogSeconds = 1
-	go initGatewayStatusCheck(config.AppConfig.WatchdogSeconds)
+	watchdogSeconds := 1
+	go initGatewayStatusCheck(watchdogSeconds)
 	testMockServer, serverErr := getTestMockServer()
 	if serverErr != nil {
 		t.Errorf("Server returned a error %v", serverErr)
 	}
 	defer testMockServer.Close()
 
+	inputData := mockGenerateHeartBeats()
+	alertError := processHeartbeat(inputData)
+	if alertError != nil {
+		t.Errorf("Error processing alerts %s", alertError)
+	}
+
+}
+
+func TestHeartbeatMissed(t *testing.T) {
+	watchdogSeconds := 1
+	go initGatewayStatusCheck(watchdogSeconds)
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+	// Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
+	inputData := mockGenerateHeartBeats()
 	for i := 0; i < 3; i++ {
-		inputData := mockGenerateHeartBeats()
 		alertError := processHeartbeat(inputData)
 		if alertError != nil {
 			t.Errorf("Error processing alerts %s", alertError)
 		}
 		time.Sleep(3 * time.Second)
-
 	}
+
 }
 
 func getTestMockServer() (*httptest.Server, error) {

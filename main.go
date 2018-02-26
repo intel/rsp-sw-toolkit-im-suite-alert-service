@@ -140,7 +140,7 @@ func initGatewayStatusCheck(WatchdogSeconds int) {
 					if gw.MissedHeartBeats >= config.AppConfig.MaxMissedHeartbeats {
 						// we have missed the maximum amount of heartbeats
 						// set this gateway to pending and send deregistered alert
-						gw.RegistrationStatus = models.Pending
+						gw.RegistrationStatus = models.Deregistered
 						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
 						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
 							log.Errorf("Problem sending GatewayDeregistered Alert: %s", err)
@@ -166,7 +166,7 @@ func updateGatewayStatus(hb models.HeartBeatMessage) {
 	// since we just got a heartbeat, there are no missed hb
 	gw.MissedHeartBeats = 0
 
-	if gw.RegistrationStatus == models.Pending {
+	if gw.RegistrationStatus == models.Pending || gw.RegistrationStatus == models.Deregistered {
 		// we just got a heart beat, so mark it as registered
 		gw.RegistrationStatus = models.Registered
 		gw.FirstHeartbeatSeen = gw.LastHeartbeatSeen
