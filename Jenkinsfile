@@ -1,5 +1,5 @@
 @Library('rsd-common-pipelines') _
 
-rrpGoBuildCode {
+rrpBuildGoCode {
     projectKey = 'rfid-alert-service'
 }
