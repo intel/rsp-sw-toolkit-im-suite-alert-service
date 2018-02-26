@@ -1,4 +1,4 @@
-@Library('rsd-common-pipelines') _
+@Library('jenkins-common-pipelines') _
 
 rrpBuildGoCode {
     projectKey = 'rfid-alert-service'
