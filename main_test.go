@@ -33,6 +33,11 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )
 
+type inputTest struct {
+	title string
+	input []byte
+}
+
 func TestMain(m *testing.M) {
 	if err := config.InitConfig(); err != nil {
 		log.WithFields(log.Fields{
@@ -74,22 +79,133 @@ func Test_processHeartbeat(t *testing.T) {
 
 }
 
-func TestHeartbeatMissed(t *testing.T) {
+func TestGatewayDeregister(t *testing.T) {
 	watchdogSeconds := 1
+	//Starting gateway status check in separate goroutine
 	go initGatewayStatusCheck(watchdogSeconds)
 	testMockServer, serverErr := getTestMockServer()
 	if serverErr != nil {
 		t.Errorf("Server returned a error %v", serverErr)
 	}
 	defer testMockServer.Close()
-	// Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
+
+	missedHeartBeats := config.AppConfig.MaxMissedHeartbeats
+
+	//Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
 	inputData := mockGenerateHeartBeats()
-	for i := 0; i < 3; i++ {
+	for i := 0; i <= missedHeartBeats; i++ {
 		alertError := processHeartbeat(inputData)
 		if alertError != nil {
 			t.Errorf("Error processing alerts %s", alertError)
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
+	}
+	if gw.MissedHeartBeats != missedHeartBeats {
+		t.Error("Failed to register missed heartbeats")
+	}
+	if gw.RegistrationStatus != models.Deregistered {
+		t.Error("Failed to deregister gateway")
+	}
+
+}
+
+func TestHeartBeatMessageValidateSchemaRequest(t *testing.T) {
+
+	var invalidJSONSample = []inputTest{
+		{
+			title: "Required field sent_on missing",
+			input: []byte(`{
+				"macaddress": "02:42:ac:1a:00:05",
+				"application": "rsp_collector",
+				"providerId": -1,
+				"dateTime": "2017-09-27T17:16:57.644Z",
+				"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
+				"value": {
+				  "device_id": "rsdrrp",
+				  "facilities": [
+					"front"
+				  ],
+				  "facility_groups_cfg": "auto-0310080051",
+				  "mesh_id": null,
+				  "mesh_node_id": null,
+				  "personality_groups_cfg": null,
+				  "schedule_cfg": "UNKNOWN",
+				  "schedule_groups_cfg": null
+				}
+			  }`),
+		},
+		{
+			title: "datetime field invalid format",
+			input: []byte(`{
+			"macaddress": "02:42:ac:1a:00:05",
+			"application": "rsp_collector",
+			"providerId": -1,
+			"dateTime": "test",
+			"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
+			"value": {
+			  "device_id": "rsdrrp",
+			  "facilities": [
+				"front"
+			  ],
+			  "facility_groups_cfg": "auto-0310080051",
+			  "mesh_id": null,
+			  "mesh_node_id": null,
+			  "personality_groups_cfg": null,
+			  "schedule_cfg": "UNKNOWN",
+			  "schedule_groups_cfg": null,
+			  "sent_on": 1506532617643
+			}
+		  }`),
+		},
+		{
+			// Empty request body
+			title: "Empty request body",
+			input: []byte(`{}`),
+		},
+	}
+	for _, item := range invalidJSONSample {
+		validErr := ValidateSchemaRequest(item.input, models.HeartBeatSchema)
+		if validErr == nil {
+			t.Errorf("Schema validation should have failed due to this reason %s", item.title)
+		}
+	}
+
+}
+
+func TestAlertValidatechemaRequest(t *testing.T) {
+
+	var invalidJSONSample = []inputTest{
+		{
+			title: "Required field sent_on missing",
+			input: []byte(`{
+				facilities:["front"],
+				device_id:"test",
+				alert_number:1234,
+				alert_description:"Sensor",
+				severity: "info",
+			  }`),
+		},
+		{
+			title: "Wrong severity type",
+			input: []byte(`{
+				sent_on:12456,
+				facilities:["front"],
+				device_id:"test",
+				alert_number:1234,
+				alert_description:"Sensor",
+				severity: "inf",
+			  }`),
+		},
+		{
+			title: "Empty request body",
+			input: []byte(`{}`),
+		},
+	}
+	for _, item := range invalidJSONSample {
+		validErr := ValidateSchemaRequest(item.input, models.HeartBeatSchema)
+		if validErr == nil {
+			t.Errorf("Schema validation should have failed due to this reason %s", item.title)
+		}
 	}
 
 }
@@ -102,12 +218,12 @@ func getTestMockServer() (*httptest.Server, error) {
 		}
 		switch request.URL.EscapedPath() {
 		case "/alert":
-			data := "recieved alert"
+			data := "received alert"
 			jsonData, _ := json.Marshal(data)
 			writer.Header().Set("Content-Type", "application/json")
 			_, _ = writer.Write(jsonData)
 		case "/heartbeat":
-			data := "recieved heartbeat"
+			data := "received heartbeat"
 			jsonData, _ := json.Marshal(data)
 			writer.Header().Set("Content-Type", "application/json")
 			_, _ = writer.Write(jsonData)
@@ -123,12 +239,11 @@ func mockGenerateAlerts() *[]byte {
 	currentTime := time.Now()
 	testAlert := models.Alert{
 		SentOn:           currentTime.AddDate(0, 0, -1).Unix(),
+		Facilities:       []string{"front"},
 		DeviceID:         "Sensor1",
 		AlertNumber:      22,
 		AlertDescription: "sensor disconnected",
-		Severity:         "medium",
-		MeshID:           "MeshID_45",
-		MeshNodeID:       "MeshNodeID_45",
+		Severity:         "info",
 	}
 	inputData, _ := json.Marshal(testAlert)
 	return &inputData
