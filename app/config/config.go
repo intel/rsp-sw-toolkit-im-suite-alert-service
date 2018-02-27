@@ -63,6 +63,9 @@ func InitConfig() error {
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
+	if AppConfig.WatchdogSeconds < 0 {
+		return errors.New("Negative value not accepted")
+	}
 
 	AppConfig.SendHeartbeatTo, err = config.GetString("sendHeartbeatTo")
 	if err != nil {
@@ -77,6 +80,9 @@ func InitConfig() error {
 	AppConfig.MaxMissedHeartbeats, err = config.GetInt("maxMissedHeartbeats")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+	if AppConfig.MaxMissedHeartbeats < 0 {
+		return errors.New("Negative value not accepted")
 	}
 
 	AppConfig.SecureMode, err = config.GetBool("secureMode")
