@@ -280,10 +280,13 @@ func postNotification(data interface{}, to string) error {
 			return reqErr
 		}
 		request.Header.Set("content-type", jsonApplication)
-		response, err := client.Do(request)
-		if err != nil ||
-			response.StatusCode != http.StatusOK {
-			return err
+		response, resperr := client.Do(request)
+		if err != nil {
+			return resperr
+		}
+		if response.StatusCode != http.StatusOK {
+			return errors.Errorf("Post notification failed with folllowing response code %d", response.StatusCode)
+
 		}
 		defer func() {
 			if err := response.Body.Close(); err != nil {

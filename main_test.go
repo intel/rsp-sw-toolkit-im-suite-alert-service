@@ -72,9 +72,9 @@ func Test_processHeartbeat(t *testing.T) {
 	defer testMockServer.Close()
 
 	inputData := mockGenerateHeartBeats()
-	alertError := processHeartbeat(inputData)
-	if alertError != nil {
-		t.Errorf("Error processing alerts %s", alertError)
+	heartBeatError := processHeartbeat(inputData)
+	if heartBeatError != nil {
+		t.Errorf("Error processing heartbeat %s", heartBeatError)
 	}
 
 }
@@ -94,11 +94,11 @@ func TestGatewayDeregister(t *testing.T) {
 	//Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
 	inputData := mockGenerateHeartBeats()
 	for i := 0; i <= missedHeartBeats; i++ {
-		alertError := processHeartbeat(inputData)
-		if alertError != nil {
-			t.Errorf("Error processing alerts %s", alertError)
+		heartBeatError := processHeartbeat(inputData)
+		if heartBeatError != nil {
+			t.Errorf("Error processing heartbeat %s", heartBeatError)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 	if gw.MissedHeartBeats != missedHeartBeats {
 		t.Error("Failed to register missed heartbeats")
@@ -178,22 +178,22 @@ func TestAlertValidatechemaRequest(t *testing.T) {
 		{
 			title: "Required field sent_on missing",
 			input: []byte(`{
-				facilities:["front"],
-				device_id:"test",
-				alert_number:1234,
-				alert_description:"Sensor",
-				severity: "info",
+				"facilities":["front"],
+				"device_id":"test",
+				"alert_number":1234,
+				"alert_description":"Sensor",
+				"severity": "info",
 			  }`),
 		},
 		{
 			title: "Wrong severity type",
 			input: []byte(`{
-				sent_on:12456,
-				facilities:["front"],
-				device_id:"test",
-				alert_number:1234,
-				alert_description:"Sensor",
-				severity: "inf",
+				"sent_on": 1506532617643
+				"facilities":["front"],
+				"device_id":"test",
+				"alert_number":1234,
+				"alert_description":"Sensor",
+				"severity": "inf",
 			  }`),
 		},
 		{
@@ -229,9 +229,8 @@ func getTestMockServer() (*httptest.Server, error) {
 			_, _ = writer.Write(jsonData)
 		}
 	}))
-	var AppConfig = config.AppConfig
-	AppConfig.SendAlertTo = testServer.URL + "/alert"
-	AppConfig.SendHeartbeatTo = testServer.URL + "/hearbeat"
+	config.AppConfig.SendAlertTo = testServer.URL + "/alert"
+	config.AppConfig.SendHeartbeatTo = testServer.URL + "/hearbeat"
 	return testServer, serverErr
 }
 
