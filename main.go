@@ -26,18 +26,20 @@ import (
 	"context_linux_go/core/sensing"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
+	"github.impcloud.net/Responsive-Retail-Inventory/utilities/gojsonschema"
 )
 
 const (
@@ -123,34 +125,35 @@ func initSensing() {
 var gw models.GatewayStatus
 var defaulttime = time.Time{}
 
-func initGatewayStatusCheck(watchdogMinutes int) {
+func initGatewayStatusCheck(watchdogSeconds int) {
 
 	gw.RegistrationStatus = models.Pending
 	gw.MissedHeartBeats = 0
 	gw.LastHeartbeatSeen = defaulttime
 
 	for {
-		<-time.After(time.Duration(watchdogMinutes) * time.Minute)
+		<-time.After(time.Duration(watchdogSeconds) * time.Second)
 		if gw.RegistrationStatus == models.Registered {
 			// we only care about GWs that are currently registered
 			if gw.LastHeartbeatSeen != defaulttime {
 				// we have seen a HB before,
 				// see if the timespan has expired
-				if time.Since(gw.LastHeartbeatSeen) > time.Duration(watchdogMinutes)*time.Minute {
+				if time.Since(gw.LastHeartbeatSeen) > time.Duration(watchdogSeconds)*time.Second {
 					gw.MissedHeartBeats = gw.MissedHeartBeats + 1
 					if gw.MissedHeartBeats >= config.AppConfig.MaxMissedHeartbeats {
-						// we have missed the maximum amount of heartbeats
-						// set this gateway to deregistered
+						// Since we have missed the maximum amount of heartbeats, set this gateway to deregistered and send alert
 						gw.RegistrationStatus = models.Deregistered
 						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
 						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+							log.Errorf("Problem sending GatewayDeregistered Alert: %s", err)
 						}
+						log.Debug("Gateway Deregistered")
 					} else {
 						gwMissedHB := models.NewGatewayMissedHeartbeatAlert(gw.LastHeartbeat)
 						if err := postNotification(gwMissedHB, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
+							log.Errorf("Problem sending Missed heartbeat Alert: %s", err)
 						}
+						log.Debug("Missed heartbeat")
 					}
 				}
 			}
@@ -165,12 +168,12 @@ func updateGatewayStatus(hb models.HeartBeatMessage) {
 	// since we just got a heartbeat, there are no missed hb
 	gw.MissedHeartBeats = 0
 
-	if gw.RegistrationStatus == models.Pending {
+	if gw.RegistrationStatus == models.Pending || gw.RegistrationStatus == models.Deregistered {
 		// we just got a heart beat, so mark it as registered
 		gw.RegistrationStatus = models.Registered
 		gw.FirstHeartbeatSeen = gw.LastHeartbeatSeen
 		gwRegistered := models.NewGatewayRegisteredAlert(gw.LastHeartbeat)
-
+		log.Debug("Gateway Registered")
 		if err := postNotification(gwRegistered, config.AppConfig.SendAlertTo); err != nil {
 			log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
 		}
@@ -181,14 +184,19 @@ func processHeartbeat(jsonBytes *[]byte) error {
 	jsoned := string(*jsonBytes)
 	log.Infof("Received Heartbeat:\n%s", jsoned)
 
+	validationErr := ValidateSchemaRequest(*jsonBytes, models.HeartBeatSchema)
+	if validationErr != nil {
+		return validationErr
+	}
+
 	var hb models.HeartBeatMessage
 	err := json.Unmarshal(*jsonBytes, &hb)
 	if err != nil {
-		fmt.Println("error parsing Heartbeat:", err)
+		log.Errorf("error parsing Heartbeat: %s", err)
+		return err
 	}
 
 	updateGatewayStatus(hb)
-
 	heartbeatEndpoint := config.AppConfig.SendHeartbeatTo
 	if err := postNotification(jsoned, heartbeatEndpoint); err != nil {
 		log.Errorf("Problem sending Heartbeat: %s", err)
@@ -202,6 +210,12 @@ func processHeartbeat(jsonBytes *[]byte) error {
 func processAlert(jsonBytes *[]byte) error {
 	jsoned := string(*jsonBytes)
 	log.Infof("Received alert:\n%s", jsoned)
+
+	validationErr := ValidateSchemaRequest(*jsonBytes, models.AlertSchema)
+	if validationErr != nil {
+		return validationErr
+	}
+
 	eventEndpoint := config.AppConfig.SendAlertTo
 	if err := postNotification(jsoned, eventEndpoint); err != nil {
 		log.Errorf("Problem sending Event: %s", err)
@@ -209,6 +223,47 @@ func processAlert(jsonBytes *[]byte) error {
 	}
 
 	log.Infof("Sent alert to %s", eventEndpoint)
+	return nil
+}
+
+//ErrReport is used to wrap schema validation errors int json object
+type ErrReport struct {
+	Field       string      `json:"field"`
+	ErrorType   string      `json:"errortype"`
+	Value       interface{} `json:"value"`
+	Description string      `json:"description"`
+}
+
+// ValidateSchemaRequest validates the api request body with the required json schema
+func ValidateSchemaRequest(jsonBody []byte, schema string) error {
+	if len(jsonBody) == 0 {
+		return errors.Wrapf(web.ErrInvalidInput, "request body cannot be empty")
+	}
+
+	schemaLoader := gojsonschema.NewStringLoader(schema)
+	documentLoader := gojsonschema.NewBytesLoader(jsonBody)
+
+	validatorResult, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return errors.Wrapf(web.ErrInvalidInput, err.Error())
+	}
+	if !validatorResult.Valid() {
+		var error ErrReport
+		var errorSlice []ErrReport
+		for _, err := range validatorResult.Errors() {
+			// ignore extraneous "number_one_of" error
+			if err.Type() == "number_one_of" {
+				continue
+			}
+			error.Description = err.Description()
+			error.Field = err.Field()
+			error.ErrorType = err.Type()
+			error.Value = err.Value()
+			errorSlice = append(errorSlice, error)
+		}
+		log.Errorf("Validaton of schema failed %s", errorSlice)
+		return errors.Wrapf(web.ErrInvalidInput, "Validation of schema failed %s", errorSlice)
+	}
 	return nil
 }
 
@@ -220,12 +275,18 @@ func postNotification(data interface{}, to string) error {
 
 	mData, err := json.MarshalIndent(data, "", "    ")
 	if err == nil {
-		request, _ := http.NewRequest("POST", to, bytes.NewBuffer(mData))
+		request, reqErr := http.NewRequest("POST", to, bytes.NewBuffer(mData))
+		if reqErr != nil {
+			return reqErr
+		}
 		request.Header.Set("content-type", jsonApplication)
-		response, err := client.Do(request)
-		if err != nil ||
-			response.StatusCode != http.StatusOK {
-			return err
+		response, resperr := client.Do(request)
+		if err != nil {
+			return resperr
+		}
+		if response.StatusCode != http.StatusOK {
+			return errors.Errorf("Post notification failed with folllowing response code %d", response.StatusCode)
+
 		}
 		defer func() {
 			if err := response.Body.Close(); err != nil {
@@ -236,6 +297,7 @@ func postNotification(data interface{}, to string) error {
 			}
 		}()
 	}
+	log.Debug("Notification posted")
 	return nil
 }
 
@@ -263,7 +325,7 @@ func main() {
 
 	initSensing()
 
-	go initGatewayStatusCheck(config.AppConfig.WatchdogMinutes)
+	go initGatewayStatusCheck(config.AppConfig.WatchdogSeconds)
 
 	// Start Webserver
 	router := routes.NewRouter()

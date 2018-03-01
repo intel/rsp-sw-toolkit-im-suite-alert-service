@@ -2,7 +2,7 @@
   "serviceName": "RRP - RFID Alert service",  
   "port": "8080",
   "contextSensing": "127.0.0.1:8888",
-  "watchdogMinutes": 1,
+  "watchdogSeconds": 120,
   "maxMissedHeartbeats": 2,
   "loggingLevel": "debug",
   "sendHeartbeatTo": "http://rrsnotification:9005/heartbeat",

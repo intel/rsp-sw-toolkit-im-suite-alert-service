@@ -25,6 +25,16 @@ import (
 
 // Alert is the base data that is provided in an alert
 type Alert struct {
+	SentOn           int64       `json:"sent_on"`
+	Facilities       []string    `json:"facilities"`
+	DeviceID         string      `json:"device_id"`
+	AlertNumber      int         `json:"alert_number"`
+	AlertDescription string      `json:"alert_description"`
+	Severity         string      `json:"severity"`
+	Optional         interface{} `json:"optional"`
+}
+
+type GWAlert struct {
 	SentOn           int64
 	DeviceID         string
 	AlertNumber      int
@@ -37,7 +47,7 @@ type Alert struct {
 // GatewayAlert is the base data that is provided in a Gateway Alert
 type GatewayAlert struct {
 	Facilities []string
-	Alert
+	GWAlert
 }
 
 // GatewayRegisteredAlert is sent when a gateway is registered
@@ -108,3 +118,53 @@ func NewGatewayMissedHeartbeatAlert(hb HeartBeatMessage) GatewayMissedHeartbeatA
 
 	return gwm
 }
+
+// AlertSchema represents the schema for heartbeat message
+const AlertSchema = `
+{
+    "type": "object",
+    "required": [
+        "sent_on",
+        "facilities",
+        "device_id",
+        "alert_number",
+        "alert_description",
+        "severity"
+    ],
+    "properties": {
+        "sent_on": {
+            "type": "integer"
+        },
+        "facilities": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "device_id": {
+            "type": "string"
+        },
+        "alert_number": {
+            "type": "integer"
+        },
+        "alert_description": {
+            "type": "string"
+        },
+        "severity": {
+            "type": "string",
+            "enum": [
+                "info",
+                "warning",
+                "urgent",
+                "critical"
+            ]
+        },
+        "optional": {
+            "type": ["object","null"],
+            "properties": {},
+            "additionalProperties": true
+        }
+    },
+    "additionalProperties": false
+}
+  `

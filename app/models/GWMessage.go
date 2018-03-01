@@ -41,7 +41,7 @@ type HeartBeatMessage struct {
 	MACAddress  string                `json:"macaddress"`
 	Application string                `json:"application"`
 	ProviderID  int                   `json:"providerId"`
-	Datetime    time.Time             `json:"datetime, string"`
+	Datetime    time.Time             `json:"dateTime, string"`
 	Details     HeartBeatMessageValue `json:"value"`
 }
 
@@ -65,3 +65,97 @@ type HeartBeatMessage struct {
     "sent_on": 1506532617643
   }
 }*/
+
+// Schema represents the schema for heartbeat message
+const HeartBeatSchema = `
+{
+  "definitions": {
+      "HeartBeatMessageValue": {
+          "required": [
+              "sent_on",
+              "device_id",
+              "facilities"
+          ],
+          "properties": {
+              "device_id": {
+                  "type": "string",
+                  "pattern": "^[-A-Za-z0-9_ \\.]+$"
+              },
+              "facilities": {
+                  "type": "array",
+                  "items": {
+                      "type": "string"
+                  }
+              },
+              "facility_groups_cfg": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "mesh_id": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "mesh_node_id": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "personality_groups_cfg": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "schedule_cfg": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "schedule_groups_cfg": {
+                  "type": [
+                      "string",
+                      "null"
+                  ]
+              },
+              "sent_on": {
+                  "type": "integer"
+              }
+          },
+          "additionalProperties": false,
+          "type": "object"
+      }
+  },
+  "type": "object",
+  "required": [
+      "application"
+  ],
+  "properties": {
+      "application": {
+          "type": "string"
+      },
+      "dateTime": {
+          "type": "string",
+          "format": "date-time"
+      },
+      "macaddress": {
+          "type": "string"
+      },
+      "providerId": {
+          "type": "integer"
+      },
+      "type": {
+        "type": "string"
+    },
+      "value": {
+          "$ref": "#/definitions/HeartBeatMessageValue"
+      }
+  },
+  "additionalProperties": false
+}
+`
