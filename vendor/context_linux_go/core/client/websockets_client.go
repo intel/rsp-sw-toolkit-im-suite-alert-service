@@ -1,12 +1,12 @@
 //
 // INTEL CONFIDENTIAL
 // Copyright 2017 Intel Corporation.
-//
+// 
 // This software and the related documents are Intel copyrighted materials, and your use of them is governed
 // by the express license under which they were provided to you (License). Unless the License provides otherwise,
 // you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
 // without Intel's prior written permission.
-//
+// 
 // This software and the related documents are provided as is, with no express or implied warranties, other than
 // those that are expressly stated in the License.
 //
@@ -26,9 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"net/http"
-
-	"golang.org/x/net/websocket"
 )
 
 var contextRPCVersion = core.GetVersion()
@@ -40,7 +39,9 @@ const (
 )
 
 // Global so it can be overridden by
-var wsDialConfig = websocket.DialConfig
+var wsDialer = func(dialer websocket.Dialer, serverURL string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+	return dialer.Dial(serverURL, requestHeader)
+}
 
 // WSClient represents a websocket wsClient connection instance
 type WSClient struct { // nolint: aligncheck
@@ -54,6 +55,8 @@ type WSClient struct { // nolint: aligncheck
 	serverConnection *websocket.Conn
 	keepAlive        bool
 	doneChan         chan bool
+	isConnected      bool
+	isDeviceRegistered bool
 	responseHandlers map[int]interface{}
 
 	nodeID   string
@@ -66,6 +69,7 @@ type WSClient struct { // nolint: aligncheck
 	retryInterval int
 
 	respHandlerMutex sync.Mutex
+	connCheckMutex sync.Mutex
 
 	cmdProc CommandProcessor
 }
@@ -137,36 +141,50 @@ func (wsClient *WSClient) Publish(item *core.ItemData) {
 func (wsClient *WSClient) EstablishConnection() error {
 	serverURL := fmt.Sprintf("%s://%s/context/v1/socket", wsClient.connectionPrefix, wsClient.server)
 
-	config, err := websocket.NewConfig(serverURL, "http://localhost/")
-	if err != nil {
-		return err
-	}
-	config.TlsConfig = &tls.Config{
-		RootCAs:            wsClient.rootCA,
-		InsecureSkipVerify: wsClient.skipVerification, // nolint: gas
+	wsHeaders := http.Header{
+		"Origin":                   {"http://localhost/"},
 	}
 
-	var connection *websocket.Conn
+	dialer := websocket.Dialer{
+		TLSClientConfig: &tls.Config{
+			RootCAs:            wsClient.rootCA,
+			InsecureSkipVerify: wsClient.skipVerification, // nolint: gas
+		},
+	}
+
+	var returnError error
+
 	for i := 1; i <= wsClient.retries+1; i++ {
-		connection, err = wsDialConfig(config)
+		connection, _, err := wsDialer(dialer, serverURL, wsHeaders)
 		if err != nil || connection == nil {
 			fmt.Printf("Websocket connection error. Attempt: %v / %v\n", i, wsClient.retries+1)
 			if err != nil {
 				fmt.Println(err)
 			}
 			time.Sleep(time.Duration(wsClient.retryInterval) * time.Second)
-
+			returnError = err
 		} else {
+			returnError = nil
+			wsClient.connCheckMutex.Lock()
 			wsClient.serverConnection = connection
+			wsClient.isConnected = true
+			wsClient.connCheckMutex.Unlock()
 			break
 		}
 	}
-	return err
+	return returnError
 }
 
 // IsConnected returns true if there is an active connection to the wsClient
 func (wsClient *WSClient) IsConnected() bool {
-	return wsClient.serverConnection != nil
+	wsClient.connCheckMutex.Lock()
+	defer wsClient.connCheckMutex.Unlock()
+	return wsClient.isConnected
+}
+
+// IsRegistered returns true if there is an active device registration to the broker
+func (wsClient *WSClient) IsRegistered() bool {
+	return wsClient.isDeviceRegistered
 }
 
 // Close ends the connection to the wsClient
@@ -217,9 +235,10 @@ func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, re
 
 	wsClient.requestID++
 
-	err := websocket.JSON.Send(wsClient.serverConnection, jsonStr)
+
+	err := wsClient.serverConnection.WriteJSON(jsonStr)
 	if err != nil {
-		wsClient.errChan <- core.ErrorData{Error: errors.New("Websocket send error")}
+		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
 	}
 }
 
@@ -254,9 +273,9 @@ func (wsClient *WSClient) sendCommand(method string, params serverParams, respon
 
 	wsClient.requestID++
 
-	err := websocket.JSON.Send(wsClient.serverConnection, jsonStr)
+	err := wsClient.serverConnection.WriteJSON(jsonStr)
 	if err != nil {
-		wsClient.errChan <- core.ErrorData{Error: errors.New("Websocket send error")}
+		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
 	}
 }
 
@@ -280,6 +299,21 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 
 	wsClient.keepAlive = true
 
+	//Ping Pong Handler
+	var pongWait = 60 * time.Second
+	wsClient.serverConnection.SetPingHandler(
+		func(string) error {
+			if err := wsClient.serverConnection.WriteMessage(websocket.PongMessage, []byte{}); err != nil {
+				return err
+			}
+			err := wsClient.serverConnection.SetReadDeadline(time.Now().Add(pongWait));
+			if err != nil {
+				return err
+			}
+			err = wsClient.serverConnection.SetWriteDeadline(time.Now().Add(pongWait));
+			return err
+		})
+
 	for wsClient.keepAlive {
 
 		if wsClient.serverConnection == nil {
@@ -287,32 +321,18 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 			break
 		}
 
-		msg := []byte{}
-		err := websocket.Message.Receive(wsClient.serverConnection, &msg)
+		_, msg, err := wsClient.serverConnection.ReadMessage()
 
 		if err != nil {
 			// If keepAlive is false, we are in the shutdown state and so can recieve errors relating
 			// to a closed connection which should be ignored (since there isn't another way to break out of Receive)
-			if wsClient.keepAlive {
-				if err.Error() == "EOF" {
-					wsClient.errChan <- core.ErrorData{Error: errors.New("Error 503 Service Unavailable")}
-				} else {
-					wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Websocket Error - Received Message: %s", err)}
-				}
-				if wsClient.serverConnection != nil {
-					err := wsClient.serverConnection.Close() //nolint:vetshadow
-					if err != nil {
-						wsClient.errChan <- core.ErrorData{Error: errors.New("Error on Server Connection Close")}
-					}
-				}
-			}
+			wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
 
 			// Break on error always since message is not valid
 			break
 		}
-
 		rawMessage := map[string]*json.RawMessage{}
-		err = websocket.JSON.Unmarshal(msg, 0, &rawMessage)
+		err=json.Unmarshal(msg, &rawMessage)
 
 		// Unmarshal the rest of the message based on its keys (request, response, method)
 		if err == nil {
@@ -467,12 +487,29 @@ func (wsClient *WSClient) sendRPCResponse(request *rpcMessage, result *result, e
 		response.Result = result
 	}
 
-	err := websocket.JSON.Send(wsClient.serverConnection, response)
+	err := wsClient.serverConnection.WriteJSON(response)
 	if err != nil {
-		wsClient.errChan <- core.ErrorData{Error: errors.New("Websocket send error")}
+		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
 	}
 }
 
 func isResponse(message *map[string]*json.RawMessage) bool {
 	return (*message)["result"] != nil || (*message)["error"] != nil
+}
+
+func (wsClient *WSClient) handleKeepAliveIfErrorDuringReadOrWrite(err error) {
+	if wsClient.keepAlive {
+		wsClient.errChan <- core.ErrorData{Error: err}
+		if wsClient.serverConnection != nil {
+			err := wsClient.serverConnection.Close() //nolint:vetshadow
+			if err != nil {
+				wsClient.errChan <- core.ErrorData{Error: errors.New("Error on Server Connection Close")}
+			}
+			wsClient.connCheckMutex.Lock()
+			wsClient.isConnected = false
+			wsClient.isDeviceRegistered = false
+			wsClient.serverConnection = nil
+			wsClient.connCheckMutex.Unlock()
+		}
+	}
 }

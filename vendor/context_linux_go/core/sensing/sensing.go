@@ -1,12 +1,12 @@
 //
 // INTEL CONFIDENTIAL
 // Copyright 2017 Intel Corporation.
-//
+// 
 // This software and the related documents are Intel copyrighted materials, and your use of them is governed
 // by the express license under which they were provided to you (License). Unless the License provides otherwise,
 // you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
 // without Intel's prior written permission.
-//
+// 
 // This software and the related documents are provided as is, with no express or implied warranties, other than
 // those that are expressly stated in the License.
 //
@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/gorilla/websocket"
 )
 
 // Sensing integrates all the components of the SDK
@@ -141,7 +142,7 @@ func (sensing *Sensing) Start(options core.SensingOptions) { // nolint: gocyclo
 
 	sensing.server = options.Server
 
-	sensing.clientInterface = client.NewWebSocketsClient(options, sensing.clientItemChan, options.OnError, sensing)
+	sensing.clientInterface = client.NewWebSocketsClient(options, sensing.clientItemChan, sensing.clientErrChan, sensing)
 
 	if sensing.clientInterface == nil {
 		sensing.startedC <- &core.SensingStarted{Started: false}
@@ -163,6 +164,9 @@ func (sensing *Sensing) Start(options core.SensingOptions) { // nolint: gocyclo
 		sensing.startedC <- &started
 		sensing.logger.Info("Sensing has started", nil)
 	}
+
+	// Acts as a mutex lock to prevent additional errors from attempting to establish connection
+	attemptingReconnectAlready := false
 
 	// Handle events coming in over the clientInterface item channel.
 	// TODO distribute errors?
@@ -189,6 +193,33 @@ func (sensing *Sensing) Start(options core.SensingOptions) { // nolint: gocyclo
 				}
 			case <-sensing.remoteDone:
 				return
+			case wsErr := <-sensing.clientErrChan:
+				if attemptingReconnectAlready {
+					break
+				}
+				if websocket.IsUnexpectedCloseError(wsErr.Error, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					for {
+						if sensing.clientInterface.IsConnected() {
+							time.Sleep(time.Duration(options.RetryInterval * 1000) * time.Millisecond)
+						} else {
+							attemptingReconnectAlready = true
+							attemptingReconnectAlready = sensing.establishConnection(nil)
+							break
+						}
+					}
+				} else if sensing.checkIfConnectionError(wsErr.Error.Error()){
+					for {
+						if sensing.clientInterface.IsConnected() {
+							time.Sleep(time.Duration(options.RetryInterval * 1000) * time.Millisecond)
+						} else {
+							attemptingReconnectAlready = true
+							attemptingReconnectAlready = sensing.establishConnection(nil)
+							break
+						}
+					}
+				} else {
+					sensing.errC <- wsErr // Forward any other errors
+				}
 			}
 		}
 	}()
@@ -226,6 +257,27 @@ func (sensing *Sensing) Stop() {
 			println("Error during Sensing Stop()")
 		}
 	}
+}
+
+// Establish WS connection with the provided options
+func (sensing *Sensing) establishConnection(onStartHandler interface{}) bool{
+	err := sensing.clientInterface.EstablishConnection()
+	if err != nil {
+		sensing.logger.Error(err.Error(), nil)
+		sensing.errC <- core.ErrorData{Error: err}
+	} else if !sensing.clientInterface.IsConnected() {
+		sensing.logger.Panic("Websocket connection error. Program will exit.", logger.Params{"Broker Address": sensing.server})
+		sensing.errC <- core.ErrorData{Error: fmt.Errorf(
+			"Websocket connection error. Broker address: %v", sensing.server)}
+	} else {
+		sensing.clientInterface.RegisterDevice(onStartHandler)
+	}
+	return false
+}
+
+// Check if error message is related to connection failures
+func (sensing *Sensing) checkIfConnectionError(errorMessage string) bool {
+	return (strings.Contains(errorMessage, "read tcp") || (strings.Contains(errorMessage, "write tcp")))
 }
 
 // GetProviders returns a map of enabled local providers
