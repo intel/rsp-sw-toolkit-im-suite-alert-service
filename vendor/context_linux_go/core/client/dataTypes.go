@@ -23,6 +23,7 @@ import (
 type ClientInterface interface { // nolint: golint
 	EstablishConnection() error
 	IsConnected() bool
+	IsRegistered() bool
 	Close()
 
 	Publish(item *core.ItemData)

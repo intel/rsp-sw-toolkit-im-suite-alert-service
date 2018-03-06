@@ -9,6 +9,12 @@
 			"revisionTime": "2017-06-21T21:27:26Z"
 		},
 		{
+			"checksumSHA1": "5esGew6DwQM0eff3kkYevkt6+DI=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "4835f71f2aa5630afb746b4b20d06d6d39630b98",
+			"revisionTime": "2018-03-06T17:21:16Z"
+		},
+		{
 			"checksumSHA1": "Iik1FlR2MXRTm9R/zr21mcO3XH0=",
 			"path": "github.com/influxdata/influxdb/client",
 			"revision": "56b4a91acfc93bb33a140fd05e05d54070f9d0db",
