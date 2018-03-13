@@ -103,26 +103,36 @@ func (r *reporter) send() error {
 				},
 				Time: now,
 			})
+
 		case metrics.Gauge:
 			ms := metric.Snapshot()
-			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.gauge", name),
-				Tags:        r.tags,
-				Fields: map[string]interface{}{
-					"value": ms.Value(),
-				},
-				Time: now,
-			})
+			if ms.IsSet() {
+
+				pts = append(pts, client.Point{
+					Measurement: fmt.Sprintf("%s.gauge", name),
+					Tags:        r.tags,
+					Fields: map[string]interface{}{
+						"value": ms.Value(),
+					},
+					Time: now,
+				})
+				metric.Clear()
+			}
+
 		case metrics.GaugeFloat64:
 			ms := metric.Snapshot()
-			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.gauge", name),
-				Tags:        r.tags,
-				Fields: map[string]interface{}{
-					"value": ms.Value(),
-				},
-				Time: now,
-			})
+			if ms.IsSet() {
+				pts = append(pts, client.Point{
+					Measurement: fmt.Sprintf("%s.gauge", name),
+					Tags:        r.tags,
+					Fields: map[string]interface{}{
+						"value": ms.Value(),
+					},
+					Time: now,
+				})
+				metric.Clear()
+			}
+
 		case metrics.Histogram:
 			ms := metric.Snapshot()
 			ps := ms.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999})
