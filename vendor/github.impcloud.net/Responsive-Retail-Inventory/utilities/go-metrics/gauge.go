@@ -1,12 +1,16 @@
 package metrics
 
-import "sync/atomic"
+import (
+	"sync"
+)
 
 // Gauges hold an int64 value that can be set arbitrarily.
 type Gauge interface {
 	Snapshot() Gauge
 	Update(int64)
 	Value() int64
+	IsSet() bool
+	Clear()
 }
 
 // GetOrRegisterGauge returns an existing Gauge or constructs and registers a
@@ -23,7 +27,10 @@ func NewGauge() Gauge {
 	if UseNilMetrics {
 		return NilGauge{}
 	}
-	return &StandardGauge{0}
+	return &StandardGauge{
+		value: 0,
+		isSet: false,
+	}
 }
 
 // NewRegisteredGauge constructs and registers a new StandardGauge.
@@ -37,16 +44,19 @@ func NewRegisteredGauge(name string, r Registry) Gauge {
 }
 
 // NewFunctionalGauge constructs a new FunctionalGauge.
-func NewFunctionalGauge(f func() int64) Gauge {
+func NewFunctionalGauge(f func() int64, i func() bool) Gauge {
 	if UseNilMetrics {
 		return NilGauge{}
 	}
-	return &FunctionalGauge{value: f}
+	return &FunctionalGauge{
+		value: f,
+		isSet: i,
+	}
 }
 
 // NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
-func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge {
-	c := NewFunctionalGauge(f)
+func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64, i func() bool) Gauge {
+	c := NewFunctionalGauge(f, i)
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -55,7 +65,10 @@ func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge
 }
 
 // GaugeSnapshot is a read-only copy of another Gauge.
-type GaugeSnapshot int64
+type GaugeSnapshot struct {
+	value int64
+	isSet bool
+}
 
 // Snapshot returns the snapshot.
 func (g GaugeSnapshot) Snapshot() Gauge { return g }
@@ -66,7 +79,17 @@ func (GaugeSnapshot) Update(int64) {
 }
 
 // Value returns the value at the time the snapshot was taken.
-func (g GaugeSnapshot) Value() int64 { return int64(g) }
+func (g GaugeSnapshot) Value() int64 {
+	return g.value
+}
+
+func (g GaugeSnapshot) IsSet() bool {
+	return g.isSet
+}
+
+func (g GaugeSnapshot) Clear() {
+	panic("Clear called on a GaugeSnapshot")
+}
 
 // NilGauge is a no-op Gauge.
 type NilGauge struct{}
@@ -80,30 +103,59 @@ func (NilGauge) Update(v int64) {}
 // Value is a no-op.
 func (NilGauge) Value() int64 { return 0 }
 
+// Value is a no-op.
+func (NilGauge) IsSet() bool { return false}
+
+// Value is a no-op.
+func (NilGauge) Clear() { }
+
 // StandardGauge is the standard implementation of a Gauge and uses the
-// sync/atomic package to manage a single int64 value.
+// sync.Mutex to manage the struct values.
 type StandardGauge struct {
+	mutex sync.Mutex
 	value int64
+	isSet bool
 }
 
 // Snapshot returns a read-only copy of the gauge.
 func (g *StandardGauge) Snapshot() Gauge {
-	return GaugeSnapshot(g.Value())
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return GaugeSnapshot {g.value, g.isSet}
 }
 
 // Update updates the gauge's value.
 func (g *StandardGauge) Update(v int64) {
-	atomic.StoreInt64(&g.value, v)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.value = v
+	g.isSet = true
 }
 
 // Value returns the gauge's current value.
 func (g *StandardGauge) Value() int64 {
-	return atomic.LoadInt64(&g.value)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.value
+}
+
+func (g *StandardGauge) IsSet() bool {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.isSet
+}
+
+func (g *StandardGauge) Clear() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.value = 0
+	g.isSet = false
 }
 
 // FunctionalGauge returns value from given function
 type FunctionalGauge struct {
 	value func() int64
+	isSet func() bool
 }
 
 // Value returns the gauge's current value.
@@ -111,10 +163,24 @@ func (g FunctionalGauge) Value() int64 {
 	return g.value()
 }
 
+func (g FunctionalGauge) IsSet() bool {
+	return g.isSet()
+}
+
 // Snapshot returns the snapshot.
-func (g FunctionalGauge) Snapshot() Gauge { return GaugeSnapshot(g.Value()) }
+func (g FunctionalGauge) Snapshot() Gauge {
+	return GaugeSnapshot{
+		g.Value(),
+		g.IsSet(),
+	}
+}
 
 // Update panics.
 func (FunctionalGauge) Update(int64) {
 	panic("Update called on a FunctionalGauge")
 }
+
+func (FunctionalGauge) Clear() {
+	panic("Clear called on a FunctionalGauge")
+}
+

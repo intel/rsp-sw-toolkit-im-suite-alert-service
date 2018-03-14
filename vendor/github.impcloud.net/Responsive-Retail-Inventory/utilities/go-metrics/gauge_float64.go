@@ -7,6 +7,8 @@ type GaugeFloat64 interface {
 	Snapshot() GaugeFloat64
 	Update(float64)
 	Value() float64
+	IsSet() bool
+	Clear()
 }
 
 // GetOrRegisterGaugeFloat64 returns an existing GaugeFloat64 or constructs and registers a
@@ -25,6 +27,7 @@ func NewGaugeFloat64() GaugeFloat64 {
 	}
 	return &StandardGaugeFloat64{
 		value: 0.0,
+		isSet: false,
 	}
 }
 
@@ -39,16 +42,19 @@ func NewRegisteredGaugeFloat64(name string, r Registry) GaugeFloat64 {
 }
 
 // NewFunctionalGauge constructs a new FunctionalGauge.
-func NewFunctionalGaugeFloat64(f func() float64) GaugeFloat64 {
+func NewFunctionalGaugeFloat64(f func() float64, i func() bool) GaugeFloat64 {
 	if UseNilMetrics {
 		return NilGaugeFloat64{}
 	}
-	return &FunctionalGaugeFloat64{value: f}
+	return &FunctionalGaugeFloat64{
+		value: f,
+		isSet: i,
+	}
 }
 
 // NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
-func NewRegisteredFunctionalGaugeFloat64(name string, r Registry, f func() float64) GaugeFloat64 {
-	c := NewFunctionalGaugeFloat64(f)
+func NewRegisteredFunctionalGaugeFloat64(name string, r Registry, f func() float64, i func() bool) GaugeFloat64 {
+	c := NewFunctionalGaugeFloat64(f, i)
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -57,7 +63,10 @@ func NewRegisteredFunctionalGaugeFloat64(name string, r Registry, f func() float
 }
 
 // GaugeFloat64Snapshot is a read-only copy of another GaugeFloat64.
-type GaugeFloat64Snapshot float64
+type GaugeFloat64Snapshot struct {
+	value float64
+	isSet bool
+}
 
 // Snapshot returns the snapshot.
 func (g GaugeFloat64Snapshot) Snapshot() GaugeFloat64 { return g }
@@ -68,7 +77,19 @@ func (GaugeFloat64Snapshot) Update(float64) {
 }
 
 // Value returns the value at the time the snapshot was taken.
-func (g GaugeFloat64Snapshot) Value() float64 { return float64(g) }
+func (g GaugeFloat64Snapshot) Value() float64 {
+	return g.value
+}
+
+// Value returns the isSet at the time the snapshot was taken.
+func (g GaugeFloat64Snapshot) IsSet() bool {
+	return g.isSet
+}
+
+// Value returns the isSet at the time the snapshot was taken.
+func (g GaugeFloat64Snapshot) Clear()  {
+	panic("Clear called on a GaugeFloat64Snapshot")
+}
 
 // NilGauge is a no-op Gauge.
 type NilGaugeFloat64 struct{}
@@ -82,16 +103,25 @@ func (NilGaugeFloat64) Update(v float64) {}
 // Value is a no-op.
 func (NilGaugeFloat64) Value() float64 { return 0.0 }
 
+// IsSet is a no-op.
+func (NilGaugeFloat64) IsSet() bool { return false }
+
+// Clear is a no-op.
+func (NilGaugeFloat64) Clear()  { }
+
 // StandardGaugeFloat64 is the standard implementation of a GaugeFloat64 and uses
-// sync.Mutex to manage a single float64 value.
+// sync.Mutex to manage the struct values.
 type StandardGaugeFloat64 struct {
 	mutex sync.Mutex
 	value float64
+	isSet bool
 }
 
 // Snapshot returns a read-only copy of the gauge.
 func (g *StandardGaugeFloat64) Snapshot() GaugeFloat64 {
-	return GaugeFloat64Snapshot(g.Value())
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return GaugeFloat64Snapshot{g.value, g.isSet}
 }
 
 // Update updates the gauge's value.
@@ -99,6 +129,7 @@ func (g *StandardGaugeFloat64) Update(v float64) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	g.value = v
+	g.isSet = true
 }
 
 // Value returns the gauge's current value.
@@ -108,9 +139,25 @@ func (g *StandardGaugeFloat64) Value() float64 {
 	return g.value
 }
 
+// Value returns the gauge's current value.
+func (g *StandardGaugeFloat64) IsSet() bool {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.isSet
+}
+
+// Value returns the gauge's current value.
+func (g *StandardGaugeFloat64) Clear() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.value = 0.0
+	g.isSet = false
+}
+
 // FunctionalGaugeFloat64 returns value from given function
 type FunctionalGaugeFloat64 struct {
 	value func() float64
+	isSet func() bool
 }
 
 // Value returns the gauge's current value.
@@ -118,10 +165,24 @@ func (g FunctionalGaugeFloat64) Value() float64 {
 	return g.value()
 }
 
+// Value returns the gauge's current value.
+func (g FunctionalGaugeFloat64) IsSet() bool {
+	return g.isSet()
+}
+
 // Snapshot returns the snapshot.
-func (g FunctionalGaugeFloat64) Snapshot() GaugeFloat64 { return GaugeFloat64Snapshot(g.Value()) }
+func (g FunctionalGaugeFloat64) Snapshot() GaugeFloat64 {
+	return GaugeFloat64Snapshot{
+		g.Value(),
+		g.IsSet(),
+	}
+}
 
 // Update panics.
 func (FunctionalGaugeFloat64) Update(float64) {
 	panic("Update called on a FunctionalGaugeFloat64")
+}
+
+func (FunctionalGaugeFloat64) Clear() {
+	panic("Clear called on a FunctionalGaugeFloat64")
 }
