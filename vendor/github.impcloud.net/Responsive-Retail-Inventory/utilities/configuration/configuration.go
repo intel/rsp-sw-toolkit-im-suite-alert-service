@@ -29,7 +29,6 @@ func NewConfiguration() (*Configuration, error) {
 	}
 
 	absolutePath := path.Join(path.Dir(filename), "configuration.json")
-	fmt.Println(absolutePath)
 
 	// By default load local configuration file if it exists
 	if _, err := os.Stat(absolutePath); err != nil {
