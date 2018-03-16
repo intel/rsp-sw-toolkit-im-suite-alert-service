@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,29 +17,35 @@ import (
 
 type Configuration struct {
 	parsedJson map[string]interface{}
+	sectionName string
+}
+
+func NewSectionedConfiguration(sectionName string) (*Configuration, error) {
+	config := Configuration{}
+	config.sectionName = sectionName
+
+	err := loadConfiguration(&config)
+	if err != nil {
+		return nil, err
+	}
+
+
+	return &config, nil
 }
 
 func NewConfiguration() (*Configuration, error) {
 	config := Configuration{}
 
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		log.Print("No caller information")
+	_, executablePath, _, ok := runtime.Caller(2)
+	if ok {
+		config.sectionName = path.Base(path.Dir(executablePath))
 	}
 
-	absolutePath := path.Join(path.Dir(filename), "configuration.json")
-
-	// By default load local configuration file if it exists
-	if _, err := os.Stat(absolutePath); err != nil {
-		absolutePath, ok = os.LookupEnv("runtimeConfigPath")
-		if !ok {
-			absolutePath = "/run/secrets/configuration.json"
-		}
-		if _, err := os.Stat(absolutePath); err != nil {
-			return nil, fmt.Errorf("specified runtime config file does not exist: %v", err.Error())
-		}
+	err := loadConfiguration(&config)
+	if err != nil {
+		return nil, err
 	}
-	config.Load(absolutePath)
+
 	return &config, nil
 }
 
@@ -51,11 +56,7 @@ func (config *Configuration) Load(path string) error {
 	}
 
 	err = json.Unmarshal(file, &config.parsedJson)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (config *Configuration) GetParsedJson() map[string]interface{} {
@@ -63,11 +64,10 @@ func (config *Configuration) GetParsedJson() map[string]interface{} {
 }
 
 func (config *Configuration) GetString(path string) (string, error) {
-
-	if !config.pathExists(path) {
+	if !config.pathExistsInConfigFile(path) {
 		value, ok := os.LookupEnv(path)
 		if !ok {
-			return "", errors.New(fmt.Sprintf("%s not found", path))
+			return "", fmt.Errorf("%s not found", path)
 		}
 
 		return value, nil
@@ -77,22 +77,22 @@ func (config *Configuration) GetString(path string) (string, error) {
 
 	value, ok := item.(string)
 	if !ok {
-		return "", errors.New(fmt.Sprintf("Unable to convert value for '%s' to a string: Value='%v'", path, item))
+		return "", fmt.Errorf("Unable to convert value for '%s' to a string: Value='%v'", path, item)
 	}
 
 	return value, nil
 }
 
 func (config *Configuration) GetInt(path string) (int, error) {
-	if !config.pathExists(path) {
+	if !config.pathExistsInConfigFile(path) {
 		value, ok := os.LookupEnv(path)
 		if !ok {
-			return 0, errors.New(fmt.Sprintf("%s not found", path))
+			return 0, fmt.Errorf("%s not found", path)
 		}
 
 		intValue, err := strconv.Atoi(value)
 		if err != nil {
-			return 0, errors.New(fmt.Sprintf("Unable to convert value for '%s' to an int: Value='%v'", path, intValue))
+			return 0, fmt.Errorf("Unable to convert value for '%s' to an int: Value='%v'", path, intValue)
 		}
 
 		return intValue, nil
@@ -102,22 +102,22 @@ func (config *Configuration) GetInt(path string) (int, error) {
 
 	value, ok := item.(float64)
 	if !ok {
-		return 0, errors.New(fmt.Sprintf("Unable to convert value for '%s' to an int: Value='%v'", path, item))
+		return 0, fmt.Errorf("Unable to convert value for '%s' to an int: Value='%v'", path, item)
 	}
 
 	return int(value), nil
 }
 
 func (config *Configuration) GetFloat(path string) (float64, error) {
-	if !config.pathExists(path) {
+	if !config.pathExistsInConfigFile(path) {
 		value, ok := os.LookupEnv(path)
 		if !ok {
-			return 0, errors.New(fmt.Sprintf("%s not found", path))
+			return 0, fmt.Errorf("%s not found", path)
 		}
 
 		floatValue, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return 0, errors.New(fmt.Sprintf("Unable to convert value for '%s' to an int: Value='%v'", path, value))
+			return 0, fmt.Errorf("Unable to convert value for '%s' to an int: Value='%v'", path, value)
 		}
 
 		return floatValue, nil
@@ -127,22 +127,22 @@ func (config *Configuration) GetFloat(path string) (float64, error) {
 
 	value, ok := item.(float64)
 	if !ok {
-		return 0, errors.New(fmt.Sprintf("Unable to convert value for '%s' to an int: Value='%v'", path, item))
+		return 0, fmt.Errorf("Unable to convert value for '%s' to an int: Value='%v'", path, item)
 	}
 
 	return value, nil
 }
 
 func (config *Configuration) GetBool(path string) (bool, error) {
-	if !config.pathExists(path) {
+	if !config.pathExistsInConfigFile(path) {
 		value, ok := os.LookupEnv(path)
 		if !ok {
-			return false, errors.New(fmt.Sprintf("%s not found", path))
+			return false, fmt.Errorf("%s not found", path)
 		}
 
 		boolValue, err := strconv.ParseBool(value)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Unable to convert value for '%s' to a bool: Value='%v'", path, boolValue))
+			return false, fmt.Errorf("Unable to convert value for '%s' to a bool: Value='%v'", path, boolValue)
 		}
 
 		return boolValue, nil
@@ -152,17 +152,17 @@ func (config *Configuration) GetBool(path string) (bool, error) {
 
 	value, ok := item.(bool)
 	if !ok {
-		return false, errors.New(fmt.Sprintf("Unable to convert value for '%s' to a bool: Value='%v'", path, item))
+		return false, fmt.Errorf("Unable to convert value for '%s' to a bool: Value='%v'", path, item)
 	}
 
 	return value, nil
 }
 
 func (config *Configuration) GetStringSlice(path string) ([]string, error) {
-	if !config.pathExists(path) {
+	if !config.pathExistsInConfigFile(path) {
 		value, ok := os.LookupEnv(path)
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("%s not found", path))
+			return nil, fmt.Errorf("%s not found", path)
 		}
 
 		value = strings.Replace(value, "[", "", 1)
@@ -184,7 +184,7 @@ func (config *Configuration) GetStringSlice(path string) ([]string, error) {
 	for _, sliceItem := range slice {
 		value, ok := sliceItem.(string)
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("Unable to convert a value for '%s' to a string: Value='%v'", path, sliceItem))
+			return nil, fmt.Errorf("Unable to convert a value for '%s' to a string: Value='%v'", path, sliceItem)
 
 		}
 		stringSlice = append(stringSlice, value)
@@ -198,6 +198,19 @@ func (config *Configuration) getValue(path string) interface{} {
 		return nil
 	}
 
+	if config.sectionName != "" {
+		sectionedPath := fmt.Sprintf("%s.%s",config.sectionName,path)
+		value := config.getValueFromJson(sectionedPath)
+		if value != nil {
+			return value
+		}
+	}
+
+	value := config.getValueFromJson(path)
+	return value
+}
+
+func (config *Configuration) getValueFromJson(path string) interface{} {
 	pathNodes := strings.Split(path, ".")
 	if len(pathNodes) == 0 {
 		return nil
@@ -224,10 +237,46 @@ func (config *Configuration) getValue(path string) interface{} {
 	return value
 }
 
-func (config *Configuration) pathExists(path string) bool {
-	if config.getValue(path) == nil {
-		return false
+func loadConfiguration(config *Configuration) error {
+	_, filename, _, ok := runtime.Caller(2)
+	if !ok {
+		log.Print("No caller information")
 	}
 
-	return true
+	absolutePath := path.Join(path.Dir(filename), "configuration.json")
+
+	// By default load local configuration file if it exists
+	if _, err := os.Stat(absolutePath); err != nil {
+		absolutePath, ok = os.LookupEnv("runtimeConfigPath")
+		if !ok {
+			absolutePath = "/run/secrets/configuration.json"
+		}
+		if _, err := os.Stat(absolutePath); err != nil {
+			absolutePath = ""
+		}
+	}
+
+	if absolutePath != "" {
+		err := config.Load(absolutePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (config *Configuration) pathExistsInConfigFile(path string) bool {
+	if config.sectionName != "" {
+		sectionPath := fmt.Sprintf("%s.%s",config.sectionName,path)
+		if config.getValue(sectionPath) != nil {
+			return true
+		}
+	}
+
+	if config.getValue(path) != nil {
+		return true
+	}
+
+	return false
 }
