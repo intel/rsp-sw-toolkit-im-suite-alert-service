@@ -9,8 +9,6 @@
 				"arrived",
 				"last_read",
 				"source",
-				"fixed",
-				"handheld",
 				"epc_state"
 			],
 			"properties": {
@@ -43,12 +41,6 @@
 				},
 				"source": {
 					"type": "string"
-				},
-				"fixed": {
-					"type": "number"
-				},
-				"handheld": {
-					"type": "number"
 				},
 				"location_history": {
 					"type": "array",
