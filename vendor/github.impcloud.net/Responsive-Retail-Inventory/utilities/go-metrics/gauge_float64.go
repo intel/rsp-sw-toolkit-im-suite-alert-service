@@ -2,7 +2,7 @@ package metrics
 
 import "sync"
 
-// GaugeFloat64s hold a float64 value that can be set arbitrarily.
+// GaugeFloat64 holds a float64 value that can be set arbitrarily.
 type GaugeFloat64 interface {
 	Snapshot() GaugeFloat64
 	Update(float64)
@@ -37,11 +37,11 @@ func NewRegisteredGaugeFloat64(name string, r Registry) GaugeFloat64 {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
-// NewFunctionalGauge constructs a new FunctionalGauge.
+// NewFunctionalGaugeFloat64 constructs a new FunctionalGauge.
 func NewFunctionalGaugeFloat64(f func() float64, i func() bool) GaugeFloat64 {
 	if UseNilMetrics {
 		return NilGaugeFloat64{}
@@ -52,13 +52,13 @@ func NewFunctionalGaugeFloat64(f func() float64, i func() bool) GaugeFloat64 {
 	}
 }
 
-// NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
+// NewRegisteredFunctionalGaugeFloat64 constructs and registers a new StandardGauge.
 func NewRegisteredFunctionalGaugeFloat64(name string, r Registry, f func() float64, i func() bool) GaugeFloat64 {
 	c := NewFunctionalGaugeFloat64(f, i)
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
@@ -81,17 +81,17 @@ func (g GaugeFloat64Snapshot) Value() float64 {
 	return g.value
 }
 
-// Value returns the isSet at the time the snapshot was taken.
+// IsSet returns the isSet at the time the snapshot was taken.
 func (g GaugeFloat64Snapshot) IsSet() bool {
 	return g.isSet
 }
 
-// Value returns the isSet at the time the snapshot was taken.
-func (g GaugeFloat64Snapshot) Clear()  {
+// Clear is not supposed to call for GaugeFloat64Snapshot.
+func (g GaugeFloat64Snapshot) Clear() {
 	panic("Clear called on a GaugeFloat64Snapshot")
 }
 
-// NilGauge is a no-op Gauge.
+// NilGaugeFloat64 is a no-op Gauge.
 type NilGaugeFloat64 struct{}
 
 // Snapshot is a no-op.
@@ -107,7 +107,7 @@ func (NilGaugeFloat64) Value() float64 { return 0.0 }
 func (NilGaugeFloat64) IsSet() bool { return false }
 
 // Clear is a no-op.
-func (NilGaugeFloat64) Clear()  { }
+func (NilGaugeFloat64) Clear() {}
 
 // StandardGaugeFloat64 is the standard implementation of a GaugeFloat64 and uses
 // sync.Mutex to manage the struct values.
@@ -139,14 +139,14 @@ func (g *StandardGaugeFloat64) Value() float64 {
 	return g.value
 }
 
-// Value returns the gauge's current value.
+// IsSet returns the gauge's isSet value.
 func (g *StandardGaugeFloat64) IsSet() bool {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	return g.isSet
 }
 
-// Value returns the gauge's current value.
+// Clear resets the gauge's value to the defaults
 func (g *StandardGaugeFloat64) Clear() {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -165,7 +165,7 @@ func (g FunctionalGaugeFloat64) Value() float64 {
 	return g.value()
 }
 
-// Value returns the gauge's current value.
+// IsSet returns the gauge's isSet value.
 func (g FunctionalGaugeFloat64) IsSet() bool {
 	return g.isSet()
 }
@@ -183,6 +183,7 @@ func (FunctionalGaugeFloat64) Update(float64) {
 	panic("Update called on a FunctionalGaugeFloat64")
 }
 
+// Clear is not supposed to call on FunctionalGaugeFloat64.
 func (FunctionalGaugeFloat64) Clear() {
 	panic("Clear called on a FunctionalGaugeFloat64")
 }

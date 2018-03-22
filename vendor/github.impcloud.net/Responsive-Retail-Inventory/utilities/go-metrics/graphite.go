@@ -39,7 +39,7 @@ func Graphite(r Registry, d time.Duration, prefix string, addr *net.TCPAddr) {
 // but it takes a GraphiteConfig instead.
 func GraphiteWithConfig(c GraphiteConfig) {
 	log.Printf("WARNING: This go-metrics client has been DEPRECATED! It has been moved to https://github.com/cyberdelia/go-metrics-graphite and will be removed from rcrowley/go-metrics on August 12th 2015")
-	for _ = range time.Tick(c.FlushInterval) {
+	for range time.Tick(c.FlushInterval) {
 		if err := graphite(&c); nil != err {
 			log.Println(err)
 		}
@@ -61,7 +61,9 @@ func graphite(c *GraphiteConfig) error {
 	if nil != err {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		LogErrorIfAny(conn.Close())
+	}()
 	w := bufio.NewWriter(conn)
 	c.Registry.Each(func(name string, i interface{}) {
 		switch metric := i.(type) {
@@ -107,7 +109,7 @@ func graphite(c *GraphiteConfig) error {
 			fmt.Fprintf(w, "%s.%s.fifteen-minute %.2f %d\n", c.Prefix, name, t.Rate15(), now)
 			fmt.Fprintf(w, "%s.%s.mean-rate %.2f %d\n", c.Prefix, name, t.RateMean(), now)
 		}
-		w.Flush()
+		LogErrorIfAny(w.Flush())
 	})
 	return nil
 }

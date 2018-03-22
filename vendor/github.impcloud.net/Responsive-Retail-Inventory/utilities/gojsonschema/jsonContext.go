@@ -24,7 +24,10 @@
 
 package gojsonschema
 
-import "bytes"
+import (
+	"bytes"
+	"log"
+)
 
 // jsonContext implements a persistent linked-list of strings
 type jsonContext struct {
@@ -62,11 +65,17 @@ func (c *jsonContext) writeStringToBuffer(buf *bytes.Buffer, del []string) {
 		c.tail.writeStringToBuffer(buf, del)
 
 		if len(del) > 0 {
-			buf.WriteString(del[0])
+			if _, err := buf.WriteString(del[0]); err != nil {
+				log.Println(err)
+			}
 		} else {
-			buf.WriteString(".")
+			if _, err := buf.WriteString("."); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
-	buf.WriteString(c.head)
+	if _, err := buf.WriteString(c.head); err != nil {
+		log.Println(err)
+	}
 }

@@ -140,10 +140,7 @@ func (l *jsonReferenceLoader) LoadJSON() (interface{}, error) {
 		if runtime.GOOS == "windows" {
 			// on Windows, a file URL may have an extra leading slash, use slashes
 			// instead of backslashes, and have spaces escaped
-			if strings.HasPrefix(filename, "/") {
-				filename = filename[1:]
-			}
-			filename = filepath.FromSlash(filename)
+			filename = filepath.FromSlash(strings.TrimPrefix(filename, "/"))
 		}
 
 		document, err = l.loadFromFile(filename)
@@ -192,7 +189,11 @@ func (l *jsonReferenceLoader) loadFromFile(path string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Println(closeErr)
+		}
+	}()
 
 	bodyBuff := bytes.NewBuffer(nil)
 	_, err = io.Copy(bodyBuff, f)

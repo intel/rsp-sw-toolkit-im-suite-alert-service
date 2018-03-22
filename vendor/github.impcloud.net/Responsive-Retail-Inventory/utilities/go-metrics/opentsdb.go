@@ -38,7 +38,7 @@ func OpenTSDB(r Registry, d time.Duration, prefix string, addr *net.TCPAddr) {
 // OpenTSDBWithConfig is a blocking exporter function just like OpenTSDB,
 // but it takes a OpenTSDBConfig instead.
 func OpenTSDBWithConfig(c OpenTSDBConfig) {
-	for _ = range time.Tick(c.FlushInterval) {
+	for range time.Tick(c.FlushInterval) {
 		if err := openTSDB(&c); nil != err {
 			log.Println(err)
 		}
@@ -65,7 +65,9 @@ func openTSDB(c *OpenTSDBConfig) error {
 	if nil != err {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		LogErrorIfAny(conn.Close())
+	}()
 	w := bufio.NewWriter(conn)
 	c.Registry.Each(func(name string, i interface{}) {
 		switch metric := i.(type) {
@@ -113,7 +115,7 @@ func openTSDB(c *OpenTSDBConfig) error {
 			fmt.Fprintf(w, "put %s.%s.fifteen-minute %d %.2f host=%s\n", c.Prefix, name, now, t.Rate15(), shortHostname)
 			fmt.Fprintf(w, "put %s.%s.mean-rate %d %.2f host=%s\n", c.Prefix, name, now, t.RateMean(), shortHostname)
 		}
-		w.Flush()
+		LogErrorIfAny(w.Flush())
 	})
 	return nil
 }

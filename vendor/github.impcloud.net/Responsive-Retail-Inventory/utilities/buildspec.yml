@@ -16,6 +16,10 @@ phases:
 
     # Run all the unit tests
     - cd $RRP_HOME/utilities; go test -cover -v $(go list ./... | grep -v /vendor/)
+
+    # Run Gometalinter
+    - cd $RRP_HOME/utilities; gometalinter.v2 --vendor --deadline=120s --disable gotype --config=/home/linter.json ./...
+
   build:
     commands:
     # No Build as this is an internal package and Unit Tests is all that is needed

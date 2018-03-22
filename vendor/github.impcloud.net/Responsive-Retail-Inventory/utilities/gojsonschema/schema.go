@@ -31,8 +31,8 @@
 package gojsonschema
 
 import (
-	//	"encoding/json"
 	"errors"
+	"log"
 	"reflect"
 	"regexp"
 	"text/template"
@@ -47,6 +47,7 @@ var (
 	ErrorTemplateFuncs template.FuncMap
 )
 
+// NewSchema creates a new instance of Schema
 func NewSchema(l JSONLoader) (*Schema, error) {
 	ref, err := l.JsonReference()
 	if err != nil {
@@ -61,9 +62,9 @@ func NewSchema(l JSONLoader) (*Schema, error) {
 	var doc interface{}
 	if ref.String() != "" {
 		// Get document from schema pool
-		spd, err := d.pool.GetDocument(d.documentReference)
-		if err != nil {
-			return nil, err
+		spd, getErr := d.pool.GetDocument(d.documentReference)
+		if getErr != nil {
+			return nil, getErr
 		}
 		doc = spd.Document
 	} else {
@@ -83,6 +84,7 @@ func NewSchema(l JSONLoader) (*Schema, error) {
 	return &d, nil
 }
 
+// Schema gives the JSON shcema meta data and structure
 type Schema struct {
 	documentReference JsonReference
 	rootSchema        *subSchema
@@ -95,6 +97,7 @@ func (d *Schema) parse(document interface{}) error {
 	return d.parseSchema(document, d.rootSchema)
 }
 
+// SetRootSchemaName sets the root schema to input `name`
 func (d *Schema) SetRootSchemaName(name string) {
 	d.rootSchema.property = name
 }
@@ -173,12 +176,7 @@ func (d *Schema) parseSchema(documentNode interface{}, currentSchema *subSchema)
 			currentSchema.refSchema = sch
 
 		} else {
-			err := d.parseReference(documentNode, currentSchema, k)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return d.parseReference(currentSchema, k)
 		}
 	}
 
@@ -279,9 +277,11 @@ func (d *Schema) parseSchema(documentNode interface{}, currentSchema *subSchema)
 								"given":    KEY_TYPE,
 							},
 						))
-					} else {
-						currentSchema.types.Add(typeInArray.(string))
 					}
+					if addErr := currentSchema.types.Add(typeInArray.(string)); addErr != nil {
+						log.Println("schema adding error for typeInArray")
+					}
+
 				}
 
 			} else {
@@ -805,7 +805,7 @@ func (d *Schema) parseSchema(documentNode interface{}, currentSchema *subSchema)
 	return nil
 }
 
-func (d *Schema) parseReference(documentNode interface{}, currentSchema *subSchema, reference string) error {
+func (d *Schema) parseReference(currentSchema *subSchema, reference string) error {
 	var refdDocumentNode interface{}
 	jsonPointer := currentSchema.ref.GetPointer()
 	standaloneDocument := d.pool.GetStandaloneDocument()
@@ -905,9 +905,8 @@ func (d *Schema) parseDependencies(documentNode interface{}, currentSchema *subS
 							"type": STRING_SCHEMA_OR_ARRAY_OF_STRINGS,
 						},
 					))
-				} else {
-					valuesToRegister = append(valuesToRegister, value.(string))
 				}
+				valuesToRegister = append(valuesToRegister, value.(string))
 				currentSchema.dependencies[k] = valuesToRegister
 			}
 

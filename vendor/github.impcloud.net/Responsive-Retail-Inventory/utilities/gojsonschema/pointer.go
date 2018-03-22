@@ -182,9 +182,3 @@ func decodeReferenceToken(token string) string {
 	step2 := strings.Replace(step1, `~0`, `~`, -1)
 	return step2
 }
-
-func encodeReferenceToken(token string) string {
-	step1 := strings.Replace(token, `~`, `~0`, -1)
-	step2 := strings.Replace(step1, `/`, `~1`, -1)
-	return step2
-}

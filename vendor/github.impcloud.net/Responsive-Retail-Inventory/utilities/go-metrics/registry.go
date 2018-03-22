@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"sync"
@@ -47,19 +48,19 @@ type Registry interface {
 	UnregisterAll()
 }
 
-// The standard implementation of a Registry is a mutex-protected map
+// StandardRegistry is the standard implementation of a Registry is a mutex-protected map
 // of names to metrics.
 type StandardRegistry struct {
 	metrics map[string]interface{}
 	mutex   sync.Mutex
 }
 
-// Create a new registry.
+// NewRegistry create a new registry.
 func NewRegistry() Registry {
 	return &StandardRegistry{metrics: make(map[string]interface{})}
 }
 
-// Call the given function for each registered metric.
+// Each calls the given function for each registered metric.
 func (r *StandardRegistry) Each(f func(string, interface{})) {
 	for name, i := range r.registered() {
 		f(name, i)
@@ -73,7 +74,7 @@ func (r *StandardRegistry) Get(name string) interface{} {
 	return r.metrics[name]
 }
 
-// Gets an existing metric or creates and registers a new one. Threadsafe
+// GetOrRegister gets an existing metric or creates and registers a new one. Threadsafe
 // alternative to calling Get and Register on failure.
 // The interface can be the metric to register if not found in registry,
 // or a function returning the metric for lazy instantiation.
@@ -86,7 +87,9 @@ func (r *StandardRegistry) GetOrRegister(name string, i interface{}) interface{}
 	if v := reflect.ValueOf(i); v.Kind() == reflect.Func {
 		i = v.Call(nil)[0].Interface()
 	}
-	r.register(name, i)
+	if err := r.register(name, i); err != nil {
+		log.Print("register error")
+	}
 	return i
 }
 
@@ -98,7 +101,7 @@ func (r *StandardRegistry) Register(name string, i interface{}) error {
 	return r.register(name, i)
 }
 
-// Run all registered healthchecks.
+// RunHealthchecks runs all registered healthchecks.
 func (r *StandardRegistry) RunHealthchecks() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -116,11 +119,11 @@ func (r *StandardRegistry) Unregister(name string) {
 	delete(r.metrics, name)
 }
 
-// Unregister all metrics.  (Mostly for testing.)
+// UnregisterAll unregisters all metrics.  (Mostly for testing.)
 func (r *StandardRegistry) UnregisterAll() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	for name, _ := range r.metrics {
+	for name := range r.metrics {
 		delete(r.metrics, name)
 	}
 }

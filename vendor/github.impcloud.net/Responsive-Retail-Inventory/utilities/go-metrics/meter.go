@@ -42,14 +42,14 @@ func NewMeter() Meter {
 	return m
 }
 
-// NewMeter constructs and registers a new StandardMeter and launches a
+// NewRegisteredMeter constructs and registers a new StandardMeter and launches a
 // goroutine.
 func NewRegisteredMeter(name string, r Registry) Meter {
 	c := NewMeter()
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
@@ -136,7 +136,7 @@ func (m *StandardMeter) Count() int64 {
 	return count
 }
 
-// Mark records the occurance of n events.
+// Mark records the occurrence of n events.
 func (m *StandardMeter) Mark(n int64) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -216,11 +216,8 @@ var arbiter = meterArbiter{ticker: time.NewTicker(5e9)}
 
 // Ticks meters on the scheduled interval
 func (ma *meterArbiter) tick() {
-	for {
-		select {
-		case <-ma.ticker.C:
-			ma.tickMeters()
-		}
+	for range ma.ticker.C {
+		ma.tickMeters()
 	}
 }
 

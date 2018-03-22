@@ -20,7 +20,7 @@ type (
 		formatters map[string]FormatChecker
 	}
 
-	// EmailFormatter verifies email address formats
+	// EmailFormatChecker verifies email address formats
 	EmailFormatChecker struct{}
 
 	// IPV4FormatChecker verifies IP addresses in the ipv4 format
@@ -69,24 +69,26 @@ type (
 )
 
 var (
-	// Formatters holds the valid formatters, and is a public variable
+	// FormatCheckers holds the valid formatters, and is a public variable
 	// so library users can add custom formatters
 	FormatCheckers = FormatCheckerChain{
 		formatters: map[string]FormatChecker{
-			"date-time": 	 DateTimeFormatChecker{},
-			"hostname":  	 HostnameFormatChecker{},
-			"email":     	 EmailFormatChecker{},
-			"ipv4":      	 IPV4FormatChecker{},
-			"ipv6":      	 IPV6FormatChecker{},
-			"uri":       	 URIFormatChecker{},
+			"date-time":     DateTimeFormatChecker{},
+			"hostname":      HostnameFormatChecker{},
+			"email":         EmailFormatChecker{},
+			"ipv4":          IPV4FormatChecker{},
+			"ipv6":          IPV6FormatChecker{},
+			"uri":           URIFormatChecker{},
 			"uri-reference": URIReferenceFormatChecker{},
-			"uuid":      	 UUIDFormatChecker{},
-			"regex":     	 RegexFormatChecker{},
+			"uuid":          UUIDFormatChecker{},
+			"regex":         RegexFormatChecker{},
 		},
 	}
 
 	// Regex credit: https://github.com/asaskevich/govalidator
-	rxEmail = regexp.MustCompile("^(((([a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+(\\.([a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+)*)|((\\x22)((((\\x20|\\x09)*(\\x0d\\x0a))?(\\x20|\\x09)+)?(([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]|\\x21|[\\x23-\\x5b]|[\\x5d-\\x7e]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(\\([\\x01-\\x09\\x0b\\x0c\\x0d-\\x7f]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}]))))*(((\\x20|\\x09)*(\\x0d\\x0a))?(\\x20|\\x09)+)?(\\x22)))@((([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])([a-zA-Z]|\\d|-|\\.|_|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.)+(([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])([a-zA-Z]|\\d|-|\\.|_|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.?$")
+	// use as it is since the pattern is from the original user
+	// nolint: megacheck
+	rxEmail = regexp.MustCompile("^(((([a-zA-Z]|\\d|[!#\\$%&\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+(\\.([a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+)*)|((\\x22)((((\\x20|\\x09)*(\\x0d\\x0a))?(\\x20|\\x09)+)?(([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]|\\x21|[\\x23-\\x5b]|[\\x5d-\\x7e]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(\\([\\x01-\\x09\\x0b\\x0c\\x0d-\\x7f]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}]))))*(((\\x20|\\x09)*(\\x0d\\x0a))?(\\x20|\\x09)+)?(\\x22)))@((([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])([a-zA-Z]|\\d|-|\\.|_|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*([a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.)+(([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])([a-zA-Z]|\\d|-|\\.|_|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*([a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.?$")
 
 	// Regex credit: https://www.socketloop.com/tutorials/golang-validate-hostname
 	rxHostname = regexp.MustCompile(`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*$`)
@@ -134,22 +136,24 @@ func (c *FormatCheckerChain) IsFormat(name string, input interface{}) bool {
 	return f.IsFormat(inputString)
 }
 
+// IsFormat checks whether the email format is well-formed or not
 func (f EmailFormatChecker) IsFormat(input string) bool {
 	return rxEmail.MatchString(input)
 }
 
-// Credit: https://github.com/asaskevich/govalidator
+// IsFormat Credit: https://github.com/asaskevich/govalidator
 func (f IPV4FormatChecker) IsFormat(input string) bool {
 	ip := net.ParseIP(input)
 	return ip != nil && strings.Contains(input, ".")
 }
 
-// Credit: https://github.com/asaskevich/govalidator
+// IsFormat Credit: https://github.com/asaskevich/govalidator
 func (f IPV6FormatChecker) IsFormat(input string) bool {
 	ip := net.ParseIP(input)
 	return ip != nil && strings.Contains(input, ":")
 }
 
+// IsFormat checks whether input date time string is well-formed or not
 func (f DateTimeFormatChecker) IsFormat(input string) bool {
 	formats := []string{
 		"15:04:05",
@@ -168,6 +172,7 @@ func (f DateTimeFormatChecker) IsFormat(input string) bool {
 	return false
 }
 
+// IsFormat checks whether input string URI is well-formed or not
 func (f URIFormatChecker) IsFormat(input string) bool {
 	u, err := url.Parse(input)
 	if err != nil || u.Scheme == "" {
@@ -177,15 +182,18 @@ func (f URIFormatChecker) IsFormat(input string) bool {
 	return true
 }
 
+// IsFormat checks whether input string URIReference is well-formed or not
 func (f URIReferenceFormatChecker) IsFormat(input string) bool {
 	_, err := url.Parse(input)
 	return err == nil
 }
 
+// IsFormat checks whether input string hostname is well-formed or not
 func (f HostnameFormatChecker) IsFormat(input string) bool {
 	return rxHostname.MatchString(input) && len(input) < 256
 }
 
+// IsFormat checks whether input string UUID is well-formed or not
 func (f UUIDFormatChecker) IsFormat(input string) bool {
 	return rxUUID.MatchString(input)
 }
@@ -196,8 +204,5 @@ func (f RegexFormatChecker) IsFormat(input string) bool {
 		return true
 	}
 	_, err := regexp.Compile(input)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

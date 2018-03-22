@@ -28,6 +28,7 @@ package gojsonschema
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"strconv"
@@ -78,15 +79,17 @@ func isJsonNumber(what interface{}) bool {
 	return false
 }
 
-func checkJsonNumber(what interface{}) (isValidFloat64 bool, isValidInt64 bool, isValidInt32 bool) {
+func checkJsonNumber(what interface{}) (isValidInt64 bool, isValidInt32 bool) {
 
 	jsonNumber := what.(json.Number)
 
 	f64, errFloat64 := jsonNumber.Float64()
+	if errFloat64 != nil {
+		log.Println(errFloat64)
+	}
 	s64 := strconv.FormatFloat(f64, 'f', -1, 64)
 	_, errInt64 := strconv.ParseInt(s64, 10, 64)
 
-	isValidFloat64 = errFloat64 == nil
 	isValidInt64 = errInt64 == nil
 
 	_, errInt32 := strconv.ParseInt(s64, 10, 32)
@@ -117,7 +120,7 @@ func mustBeInteger(what interface{}) *int {
 
 		number := what.(json.Number)
 
-		_, _, isValidInt32 := checkJsonNumber(number)
+		_, isValidInt32 := checkJsonNumber(number)
 
 		if isValidInt32 {
 
@@ -129,10 +132,8 @@ func mustBeInteger(what interface{}) *int {
 			int32Value := int(int64Value)
 			return &int32Value
 
-		} else {
-			return nil
 		}
-
+		return nil
 	}
 
 	return nil
@@ -147,10 +148,8 @@ func mustBeNumber(what interface{}) *float64 {
 
 		if err == nil {
 			return &float64Value
-		} else {
-			return nil
 		}
-
+		return nil
 	}
 
 	return nil
@@ -164,7 +163,10 @@ func resultErrorFormatJsonNumber(n json.Number) string {
 		return fmt.Sprintf("%d", int64Value)
 	}
 
-	float64Value, _ := n.Float64()
+	float64Value, errFloat64 := n.Float64()
+	if errFloat64 != nil {
+		log.Println(errFloat64)
+	}
 
 	return fmt.Sprintf("%g", float64Value)
 }

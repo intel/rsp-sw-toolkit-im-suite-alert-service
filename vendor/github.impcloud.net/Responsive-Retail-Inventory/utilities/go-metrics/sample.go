@@ -564,7 +564,7 @@ func (h *expDecaySampleHeap) Push(s expDecaySample) {
 func (h *expDecaySampleHeap) Pop() expDecaySample {
 	n := len(h.s) - 1
 	h.s[0], h.s[n] = h.s[n], h.s[0]
-	h.down(0, n)
+	h.down(n)
 
 	n = len(h.s)
 	s := h.s[n-1]
@@ -591,7 +591,9 @@ func (h *expDecaySampleHeap) up(j int) {
 	}
 }
 
-func (h *expDecaySampleHeap) down(i, n int) {
+func (h *expDecaySampleHeap) down(n int) {
+	// in the use case we have, the iteration variable i is always initialized to zero
+	i := 0
 	for {
 		j1 := 2*i + 1
 		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow

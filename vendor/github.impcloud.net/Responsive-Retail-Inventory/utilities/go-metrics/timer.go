@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Timers capture the duration and rate of events.
+// Timer captures the duration and rate of events.
 type Timer interface {
 	Count() int64
 	Max() int64
@@ -52,7 +52,7 @@ func NewRegisteredTimer(name string, r Registry) Timer {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
@@ -70,8 +70,9 @@ func NewTimer() Timer {
 
 // NilTimer is a no-op Timer.
 type NilTimer struct {
-	h Histogram
-	m Meter
+	// Linter fix: commented out unused strut fields below
+	//h Histogram
+	//m Meter
 }
 
 // Count is a no-op.
@@ -221,7 +222,7 @@ func (t *StandardTimer) Update(d time.Duration) {
 	t.meter.Mark(1)
 }
 
-// Record the duration of an event that started at a time and ends now.
+// UpdateSince records the duration of an event that started at a time and ends now.
 func (t *StandardTimer) UpdateSince(ts time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

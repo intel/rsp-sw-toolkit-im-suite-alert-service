@@ -114,7 +114,7 @@ func (v *subSchema) validateRecursive(currentSubSchema *subSchema, currentNode i
 
 			value := currentNode.(json.Number)
 
-			_, isValidInt64, _ := checkJsonNumber(value)
+			isValidInt64, _ := checkJsonNumber(value)
 
 			validType := currentSubSchema.types.Contains(TYPE_NUMBER) || (isValidInt64 && currentSubSchema.types.Contains(TYPE_INTEGER))
 
@@ -456,7 +456,7 @@ func (v *subSchema) validateArray(currentSubSchema *subSchema, value []interface
 
 	// minItems & maxItems
 	if currentSubSchema.minItems != nil {
-		if nbValues < int(*currentSubSchema.minItems) {
+		if nbValues < *currentSubSchema.minItems {
 			result.addError(
 				new(ArrayMinItemsError),
 				context,
@@ -466,7 +466,7 @@ func (v *subSchema) validateArray(currentSubSchema *subSchema, value []interface
 		}
 	}
 	if currentSubSchema.maxItems != nil {
-		if nbValues > int(*currentSubSchema.maxItems) {
+		if nbValues > *currentSubSchema.maxItems {
 			result.addError(
 				new(ArrayMaxItemsError),
 				context,
@@ -508,7 +508,7 @@ func (v *subSchema) validateObject(currentSubSchema *subSchema, value map[string
 
 	// minProperties & maxProperties:
 	if currentSubSchema.minProperties != nil {
-		if len(value) < int(*currentSubSchema.minProperties) {
+		if len(value) < *currentSubSchema.minProperties {
 			result.addError(
 				new(ArrayMinPropertiesError),
 				context,
@@ -518,7 +518,7 @@ func (v *subSchema) validateObject(currentSubSchema *subSchema, value map[string
 		}
 	}
 	if currentSubSchema.maxProperties != nil {
-		if len(value) > int(*currentSubSchema.maxProperties) {
+		if len(value) > *currentSubSchema.maxProperties {
 			result.addError(
 				new(ArrayMaxPropertiesError),
 				context,
@@ -698,7 +698,7 @@ func (v *subSchema) validateString(currentSubSchema *subSchema, value interface{
 
 	// minLength & maxLength:
 	if currentSubSchema.minLength != nil {
-		if utf8.RuneCount([]byte(stringValue)) < int(*currentSubSchema.minLength) {
+		if utf8.RuneCount([]byte(stringValue)) < *currentSubSchema.minLength {
 			result.addError(
 				new(StringLengthGTEError),
 				context,
@@ -708,7 +708,7 @@ func (v *subSchema) validateString(currentSubSchema *subSchema, value interface{
 		}
 	}
 	if currentSubSchema.maxLength != nil {
-		if utf8.RuneCount([]byte(stringValue)) > int(*currentSubSchema.maxLength) {
+		if utf8.RuneCount([]byte(stringValue)) > *currentSubSchema.maxLength {
 			result.addError(
 				new(StringLengthLTEError),
 				context,

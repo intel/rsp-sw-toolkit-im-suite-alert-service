@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-// Gauges hold an int64 value that can be set arbitrarily.
+// Gauge holds an int64 value that can be set arbitrarily.
 type Gauge interface {
 	Snapshot() Gauge
 	Update(int64)
@@ -39,7 +39,7 @@ func NewRegisteredGauge(name string, r Registry) Gauge {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
@@ -60,7 +60,7 @@ func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64, i fun
 	if nil == r {
 		r = DefaultRegistry
 	}
-	r.Register(name, c)
+	LogErrorIfAny(r.Register(name, c))
 	return c
 }
 
@@ -83,10 +83,12 @@ func (g GaugeSnapshot) Value() int64 {
 	return g.value
 }
 
+// IsSet returns whether gauge snapshot is set
 func (g GaugeSnapshot) IsSet() bool {
 	return g.isSet
 }
 
+// Clear is not supposed to call for GaugeSnapshot
 func (g GaugeSnapshot) Clear() {
 	panic("Clear called on a GaugeSnapshot")
 }
@@ -103,11 +105,11 @@ func (NilGauge) Update(v int64) {}
 // Value is a no-op.
 func (NilGauge) Value() int64 { return 0 }
 
-// Value is a no-op.
-func (NilGauge) IsSet() bool { return false}
+// IsSet is a no-op.
+func (NilGauge) IsSet() bool { return false }
 
-// Value is a no-op.
-func (NilGauge) Clear() { }
+// Clear is a no-op.
+func (NilGauge) Clear() {}
 
 // StandardGauge is the standard implementation of a Gauge and uses the
 // sync.Mutex to manage the struct values.
@@ -121,7 +123,7 @@ type StandardGauge struct {
 func (g *StandardGauge) Snapshot() Gauge {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	return GaugeSnapshot {g.value, g.isSet}
+	return GaugeSnapshot{g.value, g.isSet}
 }
 
 // Update updates the gauge's value.
@@ -139,12 +141,14 @@ func (g *StandardGauge) Value() int64 {
 	return g.value
 }
 
+// IsSet returns whether standard gauge is set
 func (g *StandardGauge) IsSet() bool {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	return g.isSet
 }
 
+// Clear reset the standard gauge to its default state
 func (g *StandardGauge) Clear() {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -163,6 +167,7 @@ func (g FunctionalGauge) Value() int64 {
 	return g.value()
 }
 
+// IsSet returns whether functional gauge is set
 func (g FunctionalGauge) IsSet() bool {
 	return g.isSet()
 }
@@ -180,7 +185,7 @@ func (FunctionalGauge) Update(int64) {
 	panic("Update called on a FunctionalGauge")
 }
 
+// Clear is not supposed to call for FunctionalGauge
 func (FunctionalGauge) Clear() {
 	panic("Clear called on a FunctionalGauge")
 }
-

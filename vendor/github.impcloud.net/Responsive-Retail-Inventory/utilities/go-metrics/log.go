@@ -1,24 +1,27 @@
 package metrics
 
 import (
+	"log"
 	"time"
 )
 
+// Logger is the interface for printing formatted metrics
 type Logger interface {
 	Printf(format string, v ...interface{})
 }
 
+// Log takes Registry and Logger to log metrics with (freq) periodically
 func Log(r Registry, freq time.Duration, l Logger) {
 	LogScaled(r, freq, time.Nanosecond, l)
 }
 
-// Output each metric in the given registry periodically using the given
+// LogScaled outputs each metric in the given registry periodically using the given
 // logger. Print timings in `scale` units (eg time.Millisecond) rather than nanos.
 func LogScaled(r Registry, freq time.Duration, scale time.Duration, l Logger) {
 	du := float64(scale)
 	duSuffix := scale.String()[1:]
 
-	for _ = range time.Tick(freq) {
+	for range time.Tick(freq) {
 		r.Each(func(name string, i interface{}) {
 			switch metric := i.(type) {
 			case Counter:
@@ -76,5 +79,12 @@ func LogScaled(r Registry, freq time.Duration, scale time.Duration, l Logger) {
 				l.Printf("  mean rate:   %12.2f\n", t.RateMean())
 			}
 		})
+	}
+}
+
+// LogErrorIfAny logs the error if it is not nil
+func LogErrorIfAny(err error) {
+	if err != nil {
+		log.Println(err)
 	}
 }
