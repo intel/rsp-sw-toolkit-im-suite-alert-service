@@ -26,11 +26,16 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing, Port string
-		SendHeartbeatTo, SendAlertTo, SendEventTo       string
-		WatchdogSeconds                                 int
-		MaxMissedHeartbeats                             int
-		SecureMode, SkipCertVerify                      bool
+		ServiceName, LoggingLevel, ContextSensing, Port  string
+		NotificationChanSize                             int
+		AwsURLHost, AwsURLStage                          string
+		AlertEndpoint, HeartbeatEndpoint                 string
+		CloudConnectorURL, CloudConnectorEndpoint        string
+		JwtSignerEndpoint, JwtSignerURL                  string
+		TelemetryDataStoreName, TelemetryEndpoint        string
+		WatchdogSeconds                                  int
+		MaxMissedHeartbeats                              int
+		SecureMode, SkipCertVerify                       bool
 	}
 )
 
@@ -67,12 +72,47 @@ func InitConfig() error {
 		return errors.New("Negative value not accepted")
 	}
 
-	AppConfig.SendHeartbeatTo, err = config.GetString("sendHeartbeatTo")
+	AppConfig.NotificationChanSize, err = config.GetInt("notificationChanSize")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
-	AppConfig.SendAlertTo, err = config.GetString("sendAlertTo")
+	AppConfig.AwsURLHost, err = config.GetString("awsURLHost")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.AwsURLStage, err = config.GetString("awsURLStage")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.AlertEndpoint, err = config.GetString("alertEndpoint")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.HeartbeatEndpoint, err = config.GetString("heartbeatEndpoint")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.CloudConnectorURL, err = config.GetString("cloudConnectorURL")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.CloudConnectorEndpoint, err = config.GetString("cloudConnectorEndpoint")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.JwtSignerEndpoint, err = config.GetString("jwtSignerEndpoint")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.JwtSignerURL, err = config.GetString("jwtSignerURL")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
@@ -104,6 +144,16 @@ func InitConfig() error {
 
 	// Set "debug" for development purposes. Nil for Production.
 	AppConfig.LoggingLevel, err = config.GetString("loggingLevel")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.TelemetryEndpoint, err = config.GetString("telemetryEndpoint")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.TelemetryDataStoreName, err = config.GetString("telemetryDataStoreName")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

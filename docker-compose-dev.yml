@@ -1,54 +1,173 @@
-version: "3"
+version: "3.3"
 networks:
-  main:
+  rrs-net:
+  host-net:
+    external:
+      name: "host"    
+  context-net:
+  context-data-net:
+  rrp-net:
+
+volumes:
+# RRS Gateway Volumes
+  rfid-gw-config:
+  rfid-gw-license:
+  rfid-gw-cache:
+  rfid-gw-mesh:
+  rfid-gw-secure:
+  mosquitto-security:
+  mosquitto-control:
+
+# SAF Broker Volumes
+  brokerInData:
+
+secrets:
+  mongoAuth:
+    external: true
+  connectionString:
+    external: true
+  brokerSecureKey:
+    external: true
+  brokerSecureCert:
+    external: true
+  cssdkPasswd:
+    external: true
+  gatewayCredentials:
+    external: true
 services:
-  #CSSDK Broker
-  contextbroker:
-    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/context-broker:v0.14.0"
-    logging:
-      driver: "none"
+# RFID Gateway Section
+  mosquitto-server:
+    image: 280211473891.dkr.ecr.us-west-2.amazonaws.com/rrs/mosquitto:1.4.14
     networks:
-      main:
-        aliases:
-          - broker
-    environment:
-      MONGODB_HOST: "mongo"
-      MONGODB_PORT: "27017"
+      rrs-net:
     ports:
-      - 8888:8888
-    depends_on:
-      - rrpmongo
-  #rfid-data microservice, listens to RRS GW and puts data on to ContextSensingBus
-  rfid-data:
-    image: "280211473891.dkr.ecr.us-west-2.amazonaws.com/context/rrs-rfid-provider:v0.9.4"
-    command: ["--server", "contextbroker:8888", "--gateway", "rrptavern.ch.intel.com:1883"]
+     - "9883:9883"
+    volumes:
+     - "rfid-gw-cache:/opt/rfid-gw/cache"
+     - "mosquitto-security:/etc/mosquitto/security"
+     - "mosquitto-control:/etc/mosquitto/control"
+
+  rfid-gw:
+    image: 280211473891.dkr.ecr.us-west-2.amazonaws.com/rrs/rfid-gateway:3.x-docker-beta-08-14-g8c928c3
+    hostname: "${RFID_GW_HOSTNAME:-rrs-gateway}"
     networks:
-      main:
+       host-net:
+    environment:
+      MESH_BASE_URL: "https://evaluation.emahost.intel.com"
+      MESH_ID: "5B0B0DA332A0BCF3D1A214FA2084667B0595E02594B5B7B0EAB072FEC1CF6C37"
+      RRS_LICENSE_TEXT: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpZCI6IjI5YzQyNjM5LWFhOTItNGUwYi04Yjk2LWJkODdkZTVjZGZkNSIsImlzcyI6IkludGVsIiwiaWF0IjoxNTA2NTQxODc4LCJvd25lciI6IkludGVsIn0.hsLG-po7Cdv23JfEKWfOFMevfRNEKIJAo07KHLJh-WjCkWLU0g8eAAAs5ywWal1WNY0jBdBZ7CoAPGTSsfDoUJdIA8tlgxaExAlhxHJJCJFk8delyG4vE0mxvGX_HXqEGmPxjc9E99nWCHr4QvYdGXVFEhMuBhTJKJJOmz_8McEgF3sUjsMwnuLlIAvo3IidgIm-pEz-Gl2sAqUsVBRVbbMkc09Ou0oeYjDIVVxIGNgQO7Ld9clSMJVUcvP59nRs8W9i7QsoJfkOIKqnlw9SFH1VEJtwQWQXZ_4hKK7GUFEEx2nBB-6ezkSAbl6a72xS5R75FJgARC-o-5hRR438fg"
+      PROVISION_DOMAIN: "CLOUD"
+      PROVISION_SENSOR_TOKEN_REQUIRED: "false"
+      PROVISION_SENSOR_ENDPOINT_HOST: "cjdzpww5ba.execute-api.us-west-2.amazonaws.com"
+      CLOUDLESS_MODE: "true"
+      HTTP_PROXY: "http://proxy-chain.intel.com:911/"
+      http_proxy: "http://proxy-chain.intel.com:911/"
+    secrets:
+      - source: cssdkPasswd
+        target: cssdk_passwd
+    extra_hosts:
+      - "rrs-gateway:127.0.0.1"
+    depends_on:
+     - mosquitto-server
+    volumes:
+     - "rfid-gw-config:/opt/rfid-gw/config"
+     - "rfid-gw-license:/opt/rfid-gw/license"
+     - "rfid-gw-cache:/opt/rfid-gw/cache"
+     - "rfid-gw-mesh:/usr/local/mesh"
+     - "rfid-gw-secure:/secure"
+     - "mosquitto-security:/etc/mosquitto/security"
+     - "mosquitto-control:/etc/mosquitto/control"
+
+# Sensing and Analytics Section
+  mongo-broker-in:
+    image: 280211473891.dkr.ecr.us-west-2.amazonaws.com/rrp-poc/mongo:3.4-auth
+    command: ["mongod","--auth"]  
+    networks:
+      context-data-net:
+    logging:
+      options:
+        max-size: "1000m"
+        max-file: "5"
+    volumes:
+      - brokerInData:/data/db
+    environment:
+      AUTHPATH: /run/secrets/mongo_auth.json
+    secrets:
+      - source: mongoAuth
+        target: mongo_auth.json      
+  context-broker-in:
+    image: 280211473891.dkr.ecr.us-west-2.amazonaws.com/context/context-broker:v0.15.2
+    command: ["./dockerstart.sh", "--secure=true","--certfile=/run/secrets/server.crt","--certkeyfile=/run/secrets/server.key"]
+    networks:
+      context-data-net:    
+      context-net:
+    logging:
+      options:
+        max-size: "1000m"
+        max-file: "5"
+    environment:
+      MONGODB_HOST: "mongo-broker-in"
+      MONGODB_PORT: "27017"
+      MONGODB_AUTHFILE: /run/secrets/mongo_auth.json
+    secrets:
+      - source: mongoAuth
+        target: mongo_auth.json
+      - source: brokerSecureKey
+        target: server.key
+      - source: brokerSecureCert
+        target: server.crt
+    ports:
+       - 8888:8888
+    depends_on:
+      - mongo-broker-in
+  context-rfid-provider:
+    image: 280211473891.dkr.ecr.us-west-2.amazonaws.com/context/rrs-rfid-provider:v0.14.0
+    command: ["--server", "context-broker-in:8888", "--secure", "true", "-a", "--encryptGatewayConnection", "true", "--gatewayCredentials", "/run/secrets/gatewayCredentials", "--gateway", "mosquitto-server:9883"]
+    networks:
+      context-net:
+      rrs-net:
+    secrets:
+      - source: gatewayCredentials
+        target: gatewayCredentials
     logging:
       options:
         max-size: "1000m"
         max-file: "5"
     depends_on:
-      - contextbroker
-    restart: always
-  #Mongodb
-  rrpmongo:
-    image: mongo:3.2
-    networks:
-      main:
-        aliases:
-          - mongo
-    volumes:
-      - ./data:/data/db
+      - context-broker-in
+      - mosquitto-server
+      - rfid-gw
+
+# RRP Services Section
+  rfid-alert:
+    image: rfid-alert-service:latest
     ports:
-      - 27018:27017
-  #rfid alert service
-  # rfid-alert:
-  #   build: ./
-  #   ports:
-  #     - 8084:8080
-  #   networks:
-  #     main:
-  #   depends_on:
-  #     - contextbroker
-  #   restart: always
+      - 8084:8080
+    networks:
+      rrp-net:
+      context-net:
+    environment:
+      serviceName: "RFID Alert service"
+      port: "8084"
+      contextSensing: "context-broker-in:8888"
+      watchdogSeconds: 120
+      maxMissedHeartbeats: 3
+      loggingLevel: "debug"
+      notificationChanSize: 100
+      cloudConnectorURL: "http://127.0.0.1:8081"
+      cloudConnectorAwsEndpoint: "/aws/invoke"
+      jwtSignerURL : "http://127.0.0.1:8080"
+      jwtSignerEndpoint : "/jwt-signing/sign"
+      jwtSignerIssuer: "rrpgw"
+      awsURLHost: "/test"
+      awsURLStage: "/prod"
+      awsAlertEndpoint: "/alert"
+      awsHeartbeatEndpoint: "/heartbeat"
+      secureMode : "true"
+      skipCertVerify : "true"
+      telemetryEndpoint: ""
+      telemetryDataStoreName: ""
+    depends_on:
+       - context-broker-in
+    restart: always
+

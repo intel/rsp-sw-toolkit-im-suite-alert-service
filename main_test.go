@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -33,11 +34,6 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )
 
-type inputTest struct {
-	title string
-	input []byte
-}
-
 func TestMain(m *testing.M) {
 	if err := config.InitConfig(); err != nil {
 		log.WithFields(log.Fields{
@@ -45,32 +41,26 @@ func TestMain(m *testing.M) {
 			"Action": "Load config",
 		}).Fatal(err.Error())
 	}
+
+	//Setting mock AWS values for testing
+	copyConfig := config.AppConfig
+	config.AppConfig.CloudConnectorURL = "https://mockcloudconnector:8080/"
+	config.AppConfig.CloudConnectorEndpoint = "/aws/invoke"
+	notificationChan = make(chan Notification, config.AppConfig.NotificationChanSize)
 	os.Exit(m.Run())
+	//Setting old config values back
+	config.AppConfig = copyConfig
 }
 
 func Test_processAlert(t *testing.T) {
-	testMockServer, serverErr := getTestMockServer()
-	if serverErr != nil {
-		t.Errorf("Server returned a error %v", serverErr)
-	}
-	defer testMockServer.Close()
-
-	inputData := mockGenerateAlerts()
+	inputData := mockGenerateAlertFromGateway()
 	alertError := processAlert(inputData)
 	if alertError != nil {
 		t.Errorf("Error processing alerts %s", alertError)
 	}
 }
 
-func Test_processHeartbeat(t *testing.T) {
-	watchdogSeconds := 1
-	go initGatewayStatusCheck(watchdogSeconds)
-	testMockServer, serverErr := getTestMockServer()
-	if serverErr != nil {
-		t.Errorf("Server returned a error %v", serverErr)
-	}
-	defer testMockServer.Close()
-
+func TestProcessHeartbeat(t *testing.T) {
 	inputData := mockGenerateHeartBeats()
 	heartBeatError := processHeartbeat(inputData)
 	if heartBeatError != nil {
@@ -79,133 +69,156 @@ func Test_processHeartbeat(t *testing.T) {
 
 }
 
-func TestGatewayDeregister(t *testing.T) {
-	watchdogSeconds := 1
-	//Starting gateway status check in separate goroutine
-	go initGatewayStatusCheck(watchdogSeconds)
+func TestGeneratePayloadHeartBeat(t *testing.T) {
+	testNotification := new(Notification)
+	inputData := mockGenerateHeartBeats()
+	heartbeatPayloadURL := "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.HeartbeatEndpoint
+	var hb models.HeartbeatMessage
+	err := json.Unmarshal(*inputData, &hb)
+	if err != nil {
+		t.Errorf("error parsing Heartbeat: %s", err)
+	}
+
+	testNotification.NotificationType = "HeartBeat"
+	testNotification.NotificationMessage = "ProcessHeartbeat"
+	testNotification.Data = hb.Value
+	testNotification.GatewayID = hb.Value.DeviceID
+
 	testMockServer, serverErr := getTestMockServer()
 	if serverErr != nil {
 		t.Errorf("Server returned a error %v", serverErr)
 	}
 	defer testMockServer.Close()
+	config.AppConfig.JwtSignerURL = testMockServer.URL
 
+	generateErr := testNotification.generatePayload()
+	if generateErr != nil {
+		t.Errorf("Error in generating payload %v", generateErr)
+	}
+	notifyData, ok := testNotification.Data.(models.CloudConnectorPayload)
+	if !ok {
+		t.Error("Found incompatible payload type in notification data")
+	}
+	if notifyData.URL != heartbeatPayloadURL {
+		t.Error("Generated Payload has wrong URL for sending heartbeats")
+	}
+	hbData, ok := notifyData.Payload.(models.Heartbeat)
+	if !ok {
+		t.Error("Body of payload is not of heartbeat type")
+	}
+	validData := reflect.DeepEqual(hbData, hb.Value)
+	if !validData {
+		t.Error("Heartbeat data and generated payload data is not equal")
+	}
+}
+
+func TestGeneratePayloadAlert(t *testing.T) {
+	testNotification := new(Notification)
+	inputData := mockGenerateAlert()
+	alertPayloadURL := "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.AlertEndpoint
+	var alert models.Alert
+	err := json.Unmarshal(*inputData, &alert)
+	if err != nil {
+		t.Errorf("error parsing Heartbeat: %s", err)
+	}
+
+	testNotification.NotificationType = "Alert"
+	testNotification.NotificationMessage = "ProcessAlert"
+	testNotification.Data = alert
+	testNotification.GatewayID = "rrs-gateway"
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+	config.AppConfig.JwtSignerURL = testMockServer.URL
+
+	generateErr := testNotification.generatePayload()
+	if generateErr != nil {
+		t.Errorf("Error in generating payload %v", generateErr)
+	}
+	notifyData, ok := testNotification.Data.(models.CloudConnectorPayload)
+	if !ok {
+		t.Error("Found incompatible payload type in notification data")
+	}
+	if notifyData.URL != alertPayloadURL {
+		t.Error("Generated Payload has wrong URL for sending alerts")
+	}
+	alertData, ok := notifyData.Payload.(models.Alert)
+	if !ok {
+		t.Error("Body of payload is not of alert type")
+	}
+	validData := reflect.DeepEqual(alertData, alert)
+	if !validData {
+		t.Error("Heartbeat data and generated payload data is not equal")
+	}
+
+}
+
+func TestGatewayStatus(t *testing.T) {
+	watchdogSeconds := 1
+	//Starting gateway status check in separate goroutine
+	go monitorHeartbeat(watchdogSeconds)
 	missedHeartBeats := config.AppConfig.MaxMissedHeartbeats
 
-	//Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
+	// check for gateway registered alert
 	inputData := mockGenerateHeartBeats()
+	heartBeatError := processHeartbeat(inputData)
+	if heartBeatError != nil {
+		t.Errorf("Error processing heartbeat %s", heartBeatError)
+	}
+	if gateway.RegistrationStatus != models.Registered {
+		t.Error("Failed to register gateway")
+	}
+
+
+	//Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
 	for i := 0; i <= missedHeartBeats; i++ {
 		heartBeatError := processHeartbeat(inputData)
 		if heartBeatError != nil {
 			t.Errorf("Error processing heartbeat %s", heartBeatError)
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
-	if gw.MissedHeartBeats != missedHeartBeats {
+	// looping through notification channel to make sure we get Gateway deregistred alert before checking for error conditions
+	for noti := range notificationChan {
+		if noti.NotificationMessage == "Gateway Deregistered Alert" {
+			break
+		}
+	}
+	if gateway.MissedHeartBeats != missedHeartBeats {
 		t.Error("Failed to register missed heartbeats")
 	}
-	if gw.RegistrationStatus != models.Deregistered {
+	if gateway.RegistrationStatus != models.Deregistered {
 		t.Error("Failed to deregister gateway")
 	}
 
 }
 
-func TestHeartBeatMessageValidateSchemaRequest(t *testing.T) {
-
-	var invalidJSONSample = []inputTest{
-		{
-			title: "Required field sent_on missing",
-			input: []byte(`{
-				"macaddress": "02:42:ac:1a:00:05",
-				"application": "rsp_collector",
-				"providerId": -1,
-				"dateTime": "2017-09-27T17:16:57.644Z",
-				"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
-				"value": {
-				  "device_id": "rsdrrp",
-				  "facilities": [
-					"front"
-				  ],
-				  "facility_groups_cfg": "auto-0310080051",
-				  "mesh_id": null,
-				  "mesh_node_id": null,
-				  "personality_groups_cfg": null,
-				  "schedule_cfg": "UNKNOWN",
-				  "schedule_groups_cfg": null
-				}
-			  }`),
-		},
-		{
-			title: "datetime field invalid format",
-			input: []byte(`{
-			"macaddress": "02:42:ac:1a:00:05",
-			"application": "rsp_collector",
-			"providerId": -1,
-			"dateTime": "test",
-			"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
-			"value": {
-			  "device_id": "rsdrrp",
-			  "facilities": [
-				"front"
-			  ],
-			  "facility_groups_cfg": "auto-0310080051",
-			  "mesh_id": null,
-			  "mesh_node_id": null,
-			  "personality_groups_cfg": null,
-			  "schedule_cfg": "UNKNOWN",
-			  "schedule_groups_cfg": null,
-			  "sent_on": 1506532617643
-			}
-		  }`),
-		},
-		{
-			// Empty request body
-			title: "Empty request body",
-			input: []byte(`{}`),
-		},
+func TestPostNotification(t *testing.T) {
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
 	}
-	for _, item := range invalidJSONSample {
-		validErr := ValidateSchemaRequest(item.input, models.HeartBeatSchema)
-		if validErr == nil {
-			t.Errorf("Schema validation should have failed due to this reason %s", item.title)
-		}
+	defer testMockServer.Close()
+	inputData := mockGenerateHeartBeats()
+	mockCloudConnector := testMockServer.URL + "/aws-test/invoke"
+	_, postErr := postNotification(inputData, mockCloudConnector)
+	if postErr != nil {
+		t.Errorf("Posting notification failed %s", postErr)
 	}
-
-}
-
-func TestAlertValidatechemaRequest(t *testing.T) {
-
-	var invalidJSONSample = []inputTest{
-		{
-			title: "Required field sent_on missing",
-			input: []byte(`{
-				"facilities":["front"],
-				"device_id":"test",
-				"alert_number":1234,
-				"alert_description":"Sensor",
-				"severity": "info",
-			  }`),
-		},
-		{
-			title: "Wrong severity type",
-			input: []byte(`{
-				"sent_on": 1506532617643
-				"facilities":["front"],
-				"device_id":"test",
-				"alert_number":1234,
-				"alert_description":"Sensor",
-				"severity": "inf",
-			  }`),
-		},
-		{
-			title: "Empty request body",
-			input: []byte(`{}`),
-		},
+	mockCloudConnector = testMockServer.URL + "/jwt-signing/sign"
+	jwtResponse, postErr := postNotification(inputData, mockCloudConnector)
+	if postErr != nil {
+		t.Errorf("Posting notification failed %s", postErr)
 	}
-	for _, item := range invalidJSONSample {
-		validErr := ValidateSchemaRequest(item.input, models.HeartBeatSchema)
-		if validErr == nil {
-			t.Errorf("Schema validation should have failed due to this reason %s", item.title)
-		}
+	if jwtResponse == nil {
+		t.Errorf("JWTResponse is nil %s", postErr)
+	}
+	mockCloudConnector = "http://wrongURL:8080" + "/aws-test/invoke"
+	_, postErr = postNotification(inputData, mockCloudConnector)
+	if postErr == nil {
+		t.Error("Posting notification was successful with wrong URL")
 	}
 
 }
@@ -217,24 +230,45 @@ func getTestMockServer() (*httptest.Server, error) {
 			serverErr = errors.Errorf("Expected 'POST' request, received '%s'", request.Method)
 		}
 		switch request.URL.EscapedPath() {
-		case "/alert":
-			data := "received alert"
+		case "/jwt-signing/sign":
+			data := "xxxxx.yyyyy.zzzzz"
 			jsonData, _ := json.Marshal(data)
 			writer.Header().Set("Content-Type", "application/json")
 			_, _ = writer.Write(jsonData)
-		case "/heartbeat":
-			data := "received heartbeat"
+
+		case "/	aws/invoke":
+			data := "success"
 			jsonData, _ := json.Marshal(data)
 			writer.Header().Set("Content-Type", "application/json")
 			_, _ = writer.Write(jsonData)
 		}
 	}))
-	config.AppConfig.SendAlertTo = testServer.URL + "/alert"
-	config.AppConfig.SendHeartbeatTo = testServer.URL + "/hearbeat"
 	return testServer, serverErr
 }
 
-func mockGenerateAlerts() *[]byte {
+// Alert from gateway which includes gateway_id field
+func mockGenerateAlertFromGateway() *[]byte {
+	testAlert := []byte(
+		`{
+			"macaddress":  "02:42:ac:1a:00:05",
+			"application": "rsp_collector-service",
+			"providerId":  -1,
+  			"dateTime":    "2018-04-13T20:03:11.328Z",
+			"value": 	   {
+					 		 "sent_on": 		  1523904547000,
+							 "facilities": 		  ["front"],
+ 				     		 "device_id":         "Sensor1",
+				     		 "gateway_id":		  "rrs-gateway",
+					 		 "alert_number":      22,
+					 		 "alert_description": "sensor disconnected",
+					 		 "severity":          "info"
+			}
+		}`)
+	return &testAlert
+}
+
+// Alert for cloud which excludes gateway_id field
+func mockGenerateAlert() *[]byte {
 	currentTime := time.Now()
 	testAlert := models.Alert{
 		SentOn:           currentTime.AddDate(0, 0, -1).Unix(),
@@ -244,13 +278,20 @@ func mockGenerateAlerts() *[]byte {
 		AlertDescription: "sensor disconnected",
 		Severity:         "info",
 	}
-	inputData, _ := json.Marshal(testAlert)
+
+	testAlertMessage := models.AlertMessage{
+		MACAddress:  "02:42:ac:1a:00:05",
+		Application: "rsp_collector-service",
+		ProviderID:  -1,
+		Datetime:    time.Now(),
+		Value:     testAlert,
+	}
+	inputData, _ := json.Marshal(testAlertMessage)
 	return &inputData
 }
 
 func mockGenerateHeartBeats() *[]byte {
-	testHeartBeatMessageValue := models.HeartBeatMessageValue{
-		DeviceID:             "rsdrrp",
+	testHeartBeatMessageValue := models.Heartbeat{
 		Facilities:           []string{"front"},
 		FacilityGroupsCfg:    "auto-0310080051",
 		MeshID:               "MeshID78",
@@ -260,12 +301,12 @@ func mockGenerateHeartBeats() *[]byte {
 		ScheduleGroupsCfg:    "test",
 		SentOn:               1506532617643,
 	}
-	testHeartBeat := models.HeartBeatMessage{
+	testHeartBeat := models.HeartbeatMessage{
 		MACAddress:  "02:42:ac:1a:00:05",
 		Application: "rsp_collector-service",
 		ProviderID:  -1,
 		Datetime:    time.Now(),
-		Details:     testHeartBeatMessageValue,
+		Value:     testHeartBeatMessageValue,
 	}
 	inputData, _ := json.Marshal(testHeartBeat)
 	return &inputData

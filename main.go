@@ -26,6 +26,7 @@ import (
 	"context_linux_go/core/sensing"
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -38,8 +39,8 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
-	"github.impcloud.net/Responsive-Retail-Inventory/utilities/gojsonschema"
+	"github.impcloud.net/Responsive-Retail-Inventory/utilities/go-metrics"
+	reporter "github.impcloud.net/Responsive-Retail-Inventory/utilities/go-metrics-influxdb"
 )
 
 const (
@@ -47,7 +48,26 @@ const (
 	alertsUrn         = "urn:x-intel:context:retailsensingplatform:alerts"
 	jsonApplication   = "application/json;charset=utf-8"
 	connectionTimeout = 15
+
+	heartbeat = "HeartBeat"
+	alert     = "Alert"
 )
+
+// Notification struct
+type Notification struct {
+	NotificationType    string
+	NotificationMessage string
+	Data                interface{}
+	GatewayID			string
+	Endpoint            string
+}
+
+var gateway = models.GetInstanceGateway()
+var notificationChan chan Notification
+
+func init() {
+
+}
 
 // nolint: gocyclo
 func initSensing() {
@@ -70,8 +90,8 @@ func initSensing() {
 	sensingSdk.Start(sensingOptions)
 
 	go func(options core.SensingOptions) {
-		onHeartbeat := make(core.ProviderItemChannel)
-		onAlert := make(core.ProviderItemChannel)
+		onHeartbeat := make(core.ProviderItemChannel, 10)
+		onAlert := make(core.ProviderItemChannel, 10)
 
 		for {
 			select {
@@ -122,183 +142,270 @@ func initSensing() {
 	}(sensingOptions)
 }
 
-var gw models.GatewayStatus
-var defaulttime = time.Time{}
-
-func initGatewayStatusCheck(watchdogSeconds int) {
-
-	gw.RegistrationStatus = models.Pending
-	gw.MissedHeartBeats = 0
-	gw.LastHeartbeatSeen = defaulttime
+func monitorHeartbeat(watchdogSeconds int) {
 
 	for {
 		<-time.After(time.Duration(watchdogSeconds) * time.Second)
-		if gw.RegistrationStatus == models.Registered {
-			// we only care about GWs that are currently registered
-			if gw.LastHeartbeatSeen != defaulttime {
-				// we have seen a HB before,
-				// see if the timespan has expired
-				if time.Since(gw.LastHeartbeatSeen) > time.Duration(watchdogSeconds)*time.Second {
-					gw.MissedHeartBeats = gw.MissedHeartBeats + 1
-					if gw.MissedHeartBeats >= config.AppConfig.MaxMissedHeartbeats {
-						// Since we have missed the maximum amount of heartbeats, set this gateway to deregistered and send alert
-						gw.RegistrationStatus = models.Deregistered
-						gwDeregistered := models.NewGatewayDeregisteredAlert(gw.LastHeartbeat)
-						if err := postNotification(gwDeregistered, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending GatewayDeregistered Alert: %s", err)
-						}
+		// we only care about Gateways that are currently registered and who have missed heartbeat
+		if gateway.GetRegistrationStatus() == models.Registered && time.Since(gateway.GetLastHeartbeatSeen()) > time.Duration(watchdogSeconds)*time.Second {
+			if gateway.UpdateMissedHeartBeats() {
+				if gateway.GetMissedHeartBeats() >= config.AppConfig.MaxMissedHeartbeats {
+					// Since we have missed the maximum amount of heartbeats, set this gateway to deregistered and send alert
+					if gateway.DeregisterGateway() {
+						gatewayDeregistered, gatewayID := models.GatewayDeregisteredAlert(gateway.GetLastHeartbeat())
 						log.Debug("Gateway Deregistered")
-					} else {
-						gwMissedHB := models.NewGatewayMissedHeartbeatAlert(gw.LastHeartbeat)
-						if err := postNotification(gwMissedHB, config.AppConfig.SendAlertTo); err != nil {
-							log.Errorf("Problem sending Missed heartbeat Alert: %s", err)
+						notificationChan <- Notification{
+							NotificationType:    alert,
+							NotificationMessage: "Gateway Deregistered Alert",
+							Data:                gatewayDeregistered,
+							GatewayID:			 gatewayID,
 						}
-						log.Debug("Missed heartbeat")
+					}
+				} else {
+					// send missed heartbeat alert
+					missedHeartbeat, gatewayID := models.GatewayMissedHeartbeatAlert(gateway.GetLastHeartbeat())
+					log.Debug("Missed heartbeat")
+					notificationChan <- Notification{
+						NotificationType:    alert,
+						NotificationMessage: "Missed HeartBeat Alert",
+						Data:                missedHeartbeat,
+						GatewayID:			 gatewayID,
 					}
 				}
 			}
-		} // else this GW is not registered, so ignore it
+		}
 	}
 }
 
-func updateGatewayStatus(hb models.HeartBeatMessage) {
-	// we got a heartbeat, update the last seen
-	gw.LastHeartbeatSeen = time.Now()
-	gw.LastHeartbeat = hb
-	// since we just got a heartbeat, there are no missed hb
-	gw.MissedHeartBeats = 0
+func updateGatewayStatus(hb models.Heartbeat) {
+	lastHeartbeatSeen := time.Now()
+	lastHeartbeat := hb
+	missedHeartBeats := 0
+	if gateway.UpdateGatewayStatus(lastHeartbeatSeen, missedHeartBeats, lastHeartbeat) {
+		if gateway.GetRegistrationStatus() == models.Pending || gateway.GetRegistrationStatus() == models.Deregistered {
+			if gateway.RegisterGateway() {
+				gatewayRegistered, gatewayID := models.GatewayRegisteredAlert(gateway.GetLastHeartbeat())
+				log.Debug("Gateway Registered")
+				notificationChan <- Notification{
+					NotificationType:    alert,
+					NotificationMessage: "Gateway Registered Alert",
+					Data:                gatewayRegistered,
+					GatewayID:			 gatewayID,
+				}
+			}
 
-	if gw.RegistrationStatus == models.Pending || gw.RegistrationStatus == models.Deregistered {
-		// we just got a heart beat, so mark it as registered
-		gw.RegistrationStatus = models.Registered
-		gw.FirstHeartbeatSeen = gw.LastHeartbeatSeen
-		gwRegistered := models.NewGatewayRegisteredAlert(gw.LastHeartbeat)
-		log.Debug("Gateway Registered")
-		if err := postNotification(gwRegistered, config.AppConfig.SendAlertTo); err != nil {
-			log.Errorf("Problem sending GatewayRegistered Alert: %s", err)
 		}
 	}
 }
 
 func processHeartbeat(jsonBytes *[]byte) error {
+	// Metrics
+	metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Attempt", nil).Update(1)
+	startTime := time.Now()
+	defer metrics.GetOrRegisterTimer("RFID-Alert.ProcessHeartBeat.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Success", nil)
+	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Unmarshal-Error", nil)
+
 	jsoned := string(*jsonBytes)
 	log.Infof("Received Heartbeat:\n%s", jsoned)
 
-	validationErr := ValidateSchemaRequest(*jsonBytes, models.HeartBeatSchema)
-	if validationErr != nil {
-		return validationErr
-	}
-
-	var hb models.HeartBeatMessage
-	err := json.Unmarshal(*jsonBytes, &hb)
+	var heartbeatEvent models.HeartbeatMessage
+	err := json.Unmarshal(*jsonBytes, &heartbeatEvent)
 	if err != nil {
 		log.Errorf("error parsing Heartbeat: %s", err)
+		mUnmarshalErr.Update(1)
 		return err
 	}
 
-	updateGatewayStatus(hb)
-	heartbeatEndpoint := config.AppConfig.SendHeartbeatTo
-	if err := postNotification(jsoned, heartbeatEndpoint); err != nil {
-		log.Errorf("Problem sending Heartbeat: %s", err)
-		return err
-	}
+	updateGatewayStatus(heartbeatEvent.Value)
 
-	log.Infof("Sent Heartbeat to %s", heartbeatEndpoint)
+	notificationChan <- Notification{
+		NotificationMessage: "Process HeartBeat",
+		NotificationType:    heartbeat,
+		Data:                heartbeatEvent.Value,
+		GatewayID:           heartbeatEvent.Value.DeviceID,
+	}
+	log.Info("Processed heartbeat")
+	mSuccess.Update(1)
 	return nil
 }
 
 func processAlert(jsonBytes *[]byte) error {
+	// Metrics
+	metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Attempt", nil).Update(1)
+	startTime := time.Now()
+	defer metrics.GetOrRegisterTimer("RFID-Alert.ProcessAlert.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Success", nil)
+	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Unmarshal-Error", nil)
+
 	jsoned := string(*jsonBytes)
 	log.Infof("Received alert:\n%s", jsoned)
 
-	validationErr := ValidateSchemaRequest(*jsonBytes, models.AlertSchema)
-	if validationErr != nil {
-		return validationErr
-	}
-
-	eventEndpoint := config.AppConfig.SendAlertTo
-	if err := postNotification(jsoned, eventEndpoint); err != nil {
-		log.Errorf("Problem sending Event: %s", err)
+	var data map[string]interface{}
+	//gatewayID required for JWT signing but should not be sent to the cloud
+	var gatewayID string
+	if err := json.Unmarshal(*jsonBytes, &data); err != nil {
+		log.Errorf("error parsing Alert: %s", err)
+		mUnmarshalErr.Update(1)
 		return err
 	}
-
-	log.Infof("Sent alert to %s", eventEndpoint)
-	return nil
-}
-
-//ErrReport is used to wrap schema validation errors int json object
-type ErrReport struct {
-	Field       string      `json:"field"`
-	ErrorType   string      `json:"errortype"`
-	Value       interface{} `json:"value"`
-	Description string      `json:"description"`
-}
-
-// ValidateSchemaRequest validates the api request body with the required json schema
-func ValidateSchemaRequest(jsonBody []byte, schema string) error {
-	if len(jsonBody) == 0 {
-		return errors.Wrapf(web.ErrInvalidInput, "request body cannot be empty")
-	}
-
-	schemaLoader := gojsonschema.NewStringLoader(schema)
-	documentLoader := gojsonschema.NewBytesLoader(jsonBody)
-
-	validatorResult, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return errors.Wrapf(web.ErrInvalidInput, err.Error())
-	}
-	if !validatorResult.Valid() {
-		var error ErrReport
-		var errorSlice []ErrReport
-		for _, err := range validatorResult.Errors() {
-			// ignore extraneous "number_one_of" error
-			if err.Type() == "number_one_of" {
-				continue
-			}
-			error.Description = err.Description()
-			error.Field = err.Field()
-			error.ErrorType = err.Type()
-			error.Value = err.Value()
-			errorSlice = append(errorSlice, error)
+	if value, ok := data["value"].(map[string]interface{}); !ok {
+		return errors.New("Type assertion failed")
+	} else {
+		gatewayID, ok = value["gateway_id"].(string)
+		if !ok {
+			return errors.New("Type assertion failed")
 		}
-		log.Errorf("Validaton of schema failed %s", errorSlice)
-		return errors.Wrapf(web.ErrInvalidInput, "Validation of schema failed %s", errorSlice)
 	}
+
+	var alertEvent models.AlertMessage
+	err := json.Unmarshal(*jsonBytes, &alertEvent)
+	if err != nil {
+		log.Errorf("error parsing Alert: %s", err)
+		mUnmarshalErr.Update(1)
+		return err
+	}
+	notificationChan <- Notification{
+		NotificationMessage: "Process Alert",
+		NotificationType:    alert,
+		Data:                alertEvent.Value,
+		GatewayID:			 gatewayID,
+	}
+
+	log.Info("Processed alert")
+	mSuccess.Update(1)
 	return nil
 }
 
-func postNotification(data interface{}, to string) error {
+func notifyChannel() {
+	// CloudConnector URL to send both heartbeats and alerts
+	cloudConnector := config.AppConfig.CloudConnectorURL + config.AppConfig.CloudConnectorEndpoint
+	notificationChanSize := config.AppConfig.NotificationChanSize
+
+	for notification := range notificationChan {
+		if len(notificationChan) >= notificationChanSize - 10 {
+			log.WithFields(log.Fields{
+				"notificationChanSize": len(notificationChan),
+				"maxChannelSize": notificationChanSize,
+			}).Warn("Channel size getting full!")
+		}
+		generateErr := notification.generatePayload()
+		if generateErr != nil {
+			log.Errorf("Problem generating payload for %s, %s", notification.NotificationType, generateErr)
+		} else {
+			_, err := postNotification(notification.Data, cloudConnector)
+			if err != nil {
+				log.Errorf("Problem sending notification for %s, %s", notification.NotificationMessage, err)
+			}
+		}
+	}
+}
+
+func (notificationData *Notification) generatePayload() error {
+	var event interface{}
+	var endPoint string
+	if notificationData.NotificationType == heartbeat {
+		event = notificationData.Data.(models.Heartbeat)
+		endPoint = config.AppConfig.HeartbeatEndpoint
+	} else {
+		event = notificationData.Data.(models.Alert)
+		endPoint = config.AppConfig.AlertEndpoint
+	}
+
+	// Get Signed JWT for message authentication
+	signedJwt, err := getSignedJwt(config.AppConfig.JwtSignerURL+config.AppConfig.JwtSignerEndpoint, notificationData.GatewayID)
+	if err != nil {
+		return errors.Wrapf(err, "problem getting the signed jwt")
+	}
+
+	var payload models.CloudConnectorPayload
+	payload.Method = "POST"
+	payload.URL = "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
+	header := http.Header{}
+	header["Content-Type"] = []string{"application/json"}
+	header["Authorization"] = []string{"Bearer " + signedJwt}
+	payload.Header = header
+	payload.Payload = event
+	notificationData.Data = payload
+	return nil
+}
+
+func getSignedJwt(jwtSignerURL string, gatewayID string) (string, error) {
+	jwtRequest := models.JwtSignerRequest{
+		Claims: map[string]string{
+			"iss": gatewayID,
+		},
+	}
+
+	response, err := postNotification(jwtRequest, jwtSignerURL)
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to make JWT http request")
+	}
+
+	jwtResponse := models.JwtSignerResponse{}
+	if unmarshalErr := json.Unmarshal(response, &jwtResponse); unmarshalErr != nil {
+		return "", errors.Wrapf(err, "failed to Unmarshal responseData")
+	}
+
+	return jwtResponse.Token, nil
+}
+
+func postNotification(data interface{}, to string) ([]byte, error) {
+	// Metrics
+	metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Attempt", nil).Update(1)
+	startTime := time.Now()
+	defer metrics.GetOrRegisterTimer("RFID-Alert.PostNotification.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Success", nil)
+	mMarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Marshal-Error", nil)
+	mNotifyErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Notify-Error", nil)
+
 	timeout := time.Duration(connectionTimeout) * time.Second
 	client := &http.Client{
 		Timeout: timeout,
 	}
 
 	mData, err := json.MarshalIndent(data, "", "    ")
-	if err == nil {
-		request, reqErr := http.NewRequest("POST", to, bytes.NewBuffer(mData))
-		if reqErr != nil {
-			return reqErr
-		}
-		request.Header.Set("content-type", jsonApplication)
-		response, resperr := client.Do(request)
-		if err != nil {
-			return resperr
-		}
-		if response.StatusCode != http.StatusOK {
-			return errors.Errorf("Post notification failed with folllowing response code %d", response.StatusCode)
-
-		}
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				log.WithFields(log.Fields{
-					"Method": "postNotification",
-					"Action": "post notification to notification service",
-				}).Info(err.Error())
-			}
-		}()
+	if err != nil {
+		mMarshalErr.Update(1)
+		return nil, errors.Errorf("Payload Marshalling failed  %v", err)
 	}
+	request, reqErr := http.NewRequest("POST", to, bytes.NewBuffer(mData))
+	if reqErr != nil {
+		return nil, reqErr
+	}
+	request.Header.Set("content-type", jsonApplication)
+	response, respErr := client.Do(request)
+	if respErr != nil {
+		mNotifyErr.Update(1)
+		return nil, respErr
+	}
+
+	if response.StatusCode != http.StatusOK {
+		mNotifyErr.Update(1)
+		return nil, errors.Errorf("PostNotification failed with following response code %d", response.StatusCode)
+
+	}
+
+	var jwtResponse []byte
+	if response.Body != nil {
+		jwtResponse, err = ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to ReadALL response.Body")
+		}
+	}
+
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.WithFields(log.Fields{
+				"Method": "postNotification",
+				"Action": "response.Body.Close()",
+			}).Info(err.Error())
+		}
+	}()
+
 	log.Debug("Notification posted")
-	return nil
+	mSuccess.Update(1)
+	return jwtResponse, nil
 }
 
 func main() {
@@ -318,14 +425,20 @@ func main() {
 		os.Exit(healthcheck.Healthcheck(config.AppConfig.Port))
 	}
 
+	// Initialize metrics reporting
+	initMetrics()
+
 	log.WithFields(log.Fields{
 		"Method": "main",
 		"Action": "Start",
 	}).Info("Starting application...")
 
-	initSensing()
+	// Initialize channel with set value in config
+	notificationChan = make(chan Notification, config.AppConfig.NotificationChanSize)
 
-	go initGatewayStatusCheck(config.AppConfig.WatchdogSeconds)
+	initSensing()
+	go monitorHeartbeat(config.AppConfig.WatchdogSeconds)
+	go notifyChannel()
 
 	// Start Webserver
 	router := routes.NewRouter()
@@ -385,4 +498,19 @@ func main() {
 	// Wait for the listener to report it is closed.
 	wg.Wait()
 	log.WithField("Method", "main").Info("Completed.")
+}
+
+func initMetrics() {
+	// setup metrics reporting
+	if config.AppConfig.TelemetryEndpoint != "" {
+		go reporter.InfluxDBWithTags(
+			metrics.DefaultRegistry,
+			time.Second*10,                     //cfg.ReportingInterval,
+			config.AppConfig.TelemetryEndpoint, //cfg.ReportingEndpoint,
+			config.AppConfig.TelemetryDataStoreName,
+			"",
+			"",
+			nil,
+		)
+	}
 }
