@@ -21,21 +21,21 @@ package config
 
 import (
 	"github.com/pkg/errors"
-	"github.impcloud.net/Responsive-Retail-Inventory/utilities/configuration"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/configuration"
 )
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing, Port  string
-		NotificationChanSize                             int
-		AwsURLHost, AwsURLStage                          string
-		AlertEndpoint, HeartbeatEndpoint                 string
-		CloudConnectorURL, CloudConnectorEndpoint        string
-		JwtSignerEndpoint, JwtSignerURL                  string
-		TelemetryDataStoreName, TelemetryEndpoint        string
-		WatchdogSeconds                                  int
-		MaxMissedHeartbeats                              int
-		SecureMode, SkipCertVerify                       bool
+		ServiceName, LoggingLevel, ContextSensing, Port string
+		NotificationChanSize                            int
+		AwsURLHost, AwsURLStage                         string
+		AlertEndpoint, HeartbeatEndpoint                string
+		CloudConnectorURL, CloudConnectorEndpoint       string
+		JwtSignerEndpoint, JwtSignerURL                 string
+		TelemetryDataStoreName, TelemetryEndpoint       string
+		WatchdogSeconds                                 int
+		MaxMissedHeartbeats                             int
+		SecureMode, SkipCertVerify                      bool
 	}
 )
 

@@ -35,12 +35,12 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
+	reporter "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics-influxdb"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
-	"github.impcloud.net/Responsive-Retail-Inventory/utilities/go-metrics"
-	reporter "github.impcloud.net/Responsive-Retail-Inventory/utilities/go-metrics-influxdb"
 )
 
 const (
@@ -58,7 +58,7 @@ type Notification struct {
 	NotificationType    string
 	NotificationMessage string
 	Data                interface{}
-	GatewayID			string
+	GatewayID           string
 	Endpoint            string
 }
 
@@ -158,7 +158,7 @@ func monitorHeartbeat(watchdogSeconds int) {
 							NotificationType:    alert,
 							NotificationMessage: "Gateway Deregistered Alert",
 							Data:                gatewayDeregistered,
-							GatewayID:			 gatewayID,
+							GatewayID:           gatewayID,
 						}
 					}
 				} else {
@@ -169,7 +169,7 @@ func monitorHeartbeat(watchdogSeconds int) {
 						NotificationType:    alert,
 						NotificationMessage: "Missed HeartBeat Alert",
 						Data:                missedHeartbeat,
-						GatewayID:			 gatewayID,
+						GatewayID:           gatewayID,
 					}
 				}
 			}
@@ -190,7 +190,7 @@ func updateGatewayStatus(hb models.Heartbeat) {
 					NotificationType:    alert,
 					NotificationMessage: "Gateway Registered Alert",
 					Data:                gatewayRegistered,
-					GatewayID:			 gatewayID,
+					GatewayID:           gatewayID,
 				}
 			}
 
@@ -269,7 +269,7 @@ func processAlert(jsonBytes *[]byte) error {
 		NotificationMessage: "Process Alert",
 		NotificationType:    alert,
 		Data:                alertEvent.Value,
-		GatewayID:			 gatewayID,
+		GatewayID:           gatewayID,
 	}
 
 	log.Info("Processed alert")
@@ -283,10 +283,10 @@ func notifyChannel() {
 	notificationChanSize := config.AppConfig.NotificationChanSize
 
 	for notification := range notificationChan {
-		if len(notificationChan) >= notificationChanSize - 10 {
+		if len(notificationChan) >= notificationChanSize-10 {
 			log.WithFields(log.Fields{
 				"notificationChanSize": len(notificationChan),
-				"maxChannelSize": notificationChanSize,
+				"maxChannelSize":       notificationChanSize,
 			}).Warn("Channel size getting full!")
 		}
 		generateErr := notification.generatePayload()
