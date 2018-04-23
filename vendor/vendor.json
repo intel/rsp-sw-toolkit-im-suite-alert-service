@@ -9,7 +9,7 @@
 			"revisionTime": "2017-06-21T21:27:26Z"
 		},
 		{
-			"checksumSHA1": "5esGew6DwQM0eff3kkYevkt6+DI=",
+			"checksumSHA1": "HxlxvREYfAeiA9DKVhNILfJ8uyk=",
 			"path": "github.com/gorilla/websocket",
 			"revision": "4835f71f2aa5630afb746b4b20d06d6d39630b98",
 			"revisionTime": "2018-03-06T17:21:16Z"
@@ -45,11 +45,11 @@
 			"revisionTime": "2017-06-20T14:45:10Z"
 		},
 		{
-			"checksumSHA1": "XEWSqgWre+dgBDe6xwCMhE1101Q=",
+			"checksumSHA1": "Q/OaCV0ttrtMWED1L3XVn+CfMk4=",
 			"origin": "github.impcloud.net/Responsive-Retail-Inventory/utilities.git",
 			"path": "github.impcloud.net/Responsive-Retail-Inventory/utilities",
-			"revision": "d740aea3ae7ea9c613cafc73983f79c4736b37c6",
-			"revisionTime": "2018-03-22T21:02:17Z",
+			"revision": "89d9870ffeb076fdd127f206e53c48a561c479e9",
+			"revisionTime": "2018-04-02T18:18:06Z",
 			"tree": true
 		}
 	],

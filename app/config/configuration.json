@@ -1,12 +1,21 @@
 {
-  "serviceName": "RRP - RFID Alert service",  
-  "port": "8080",
+  "serviceName": "RFID Alert service",
+  "port": "9001",
   "contextSensing": "127.0.0.1:8888",
   "watchdogSeconds": 120,
-  "maxMissedHeartbeats": 2,
+  "maxMissedHeartbeats": 3,
   "loggingLevel": "debug",
-  "sendHeartbeatTo": "http://rrsnotification:9005/heartbeat",
-  "sendAlertTo":"http://rrsnotification:9005/alert",
-  "secureMode" : false,
-  "skipCertVerify" : false
+  "notificationChanSize": 100,
+  "cloudConnectorURL": "http://127.0.0.1:8081",
+  "cloudConnectorEndpoint":"/aws/invoke",
+  "jwtSignerURL" : "http://127.0.0.1:8080",
+  "jwtSignerEndpoint" : "/jwt-signing/sign",
+  "awsURLHost": "test",
+  "awsURLStage": "/prod",
+  "alertEndpoint": "/alert",
+  "heartbeatEndpoint": "/heartbeat",
+  "secureMode" : true,
+  "skipCertVerify" : true,
+  "telemetryEndpoint": "",
+  "telemetryDataStoreName": ""
 }
