@@ -20,8 +20,9 @@
 package models
 
 import (
-	"github.impcloud.net/Responsive-Retail-Inventory/utilities/helper"
 	"time"
+
+	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
 )
 
 // Alert value for cloud which does not include gateway_id
@@ -41,7 +42,7 @@ type AlertMessage struct {
 	Application string    `json:"application"`
 	ProviderID  int       `json:"providerId"`
 	Datetime    time.Time `json:"dateTime, string"`
-	Value     	Alert     `json:"value"`
+	Value       Alert     `json:"value"`
 }
 
 // GatewayRegisteredAlert generated when a new gateway is seen in a heartbeat
