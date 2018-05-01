@@ -72,7 +72,7 @@ func TestProcessHeartbeat(t *testing.T) {
 func TestGeneratePayloadHeartBeat(t *testing.T) {
 	testNotification := new(Notification)
 	inputData := mockGenerateHeartBeats()
-	heartbeatPayloadURL := "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.HeartbeatEndpoint
+	heartbeatPayloadURL := config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.HeartbeatEndpoint
 	var hb models.HeartbeatMessage
 	err := json.Unmarshal(*inputData, &hb)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestGeneratePayloadHeartBeat(t *testing.T) {
 func TestGeneratePayloadAlert(t *testing.T) {
 	testNotification := new(Notification)
 	inputData := mockGenerateAlert()
-	alertPayloadURL := "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.AlertEndpoint
+	alertPayloadURL := config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.AlertEndpoint
 	var alert models.Alert
 	err := json.Unmarshal(*inputData, &alert)
 	if err != nil {

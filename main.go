@@ -320,7 +320,7 @@ func (notificationData *Notification) generatePayload() error {
 
 	var payload models.CloudConnectorPayload
 	payload.Method = "POST"
-	payload.URL = "https://" + config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
+	payload.URL = config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
 	header := http.Header{}
 	header["Content-Type"] = []string{"application/json"}
 	header["Authorization"] = []string{"Bearer " + signedJwt}
