@@ -7,7 +7,7 @@
   "loggingLevel": "debug",
   "notificationChanSize": 100,
   "cloudConnectorURL": "http://127.0.0.1:8081",
-  "cloudConnectorEndpoint":"/aws/invoke",
+  "cloudConnectorEndpoint":"/callwebhook",
   "jwtSignerURL" : "http://127.0.0.1:8080",
   "jwtSignerEndpoint" : "/jwt-signing/sign",
   "awsURLHost": "test",

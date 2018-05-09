@@ -26,6 +26,7 @@ type CloudConnectorPayload struct {
 	Header  http.Header `json:"header"`
 	Payload interface{} `json:"payload"`
 	Method  string      `json:"method"`
+	IsAsync bool        `json:"isasync"`
 }
 
 type JwtSignerResponse struct {

@@ -325,6 +325,7 @@ func (notificationData *Notification) generatePayload() error {
 	header["Content-Type"] = []string{"application/json"}
 	header["Authorization"] = []string{"Bearer " + signedJwt}
 	payload.Header = header
+	payload.IsAsync = true
 	payload.Payload = event
 	notificationData.Data = payload
 	return nil
@@ -382,7 +383,7 @@ func postNotification(data interface{}, to string) ([]byte, error) {
 
 	if response.StatusCode != http.StatusOK {
 		mNotifyErr.Update(1)
-		return nil, errors.Errorf("PostNotification failed with following response code %d", response.StatusCode)
+		return nil, errors.Errorf("PostNotification failed with following response code %d %v", response.StatusCode, response.Body)
 
 	}
 
