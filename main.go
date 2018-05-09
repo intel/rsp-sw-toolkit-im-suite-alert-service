@@ -41,6 +41,7 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
+	"fmt"
 )
 
 const (
@@ -370,6 +371,7 @@ func postNotification(data interface{}, to string) ([]byte, error) {
 		mMarshalErr.Update(1)
 		return nil, errors.Errorf("Payload Marshalling failed  %v", err)
 	}
+	fmt.Println(string(mData))
 	request, reqErr := http.NewRequest("POST", to, bytes.NewBuffer(mData))
 	if reqErr != nil {
 		return nil, reqErr
@@ -383,7 +385,7 @@ func postNotification(data interface{}, to string) ([]byte, error) {
 
 	if response.StatusCode != http.StatusOK {
 		mNotifyErr.Update(1)
-		return nil, errors.Errorf("PostNotification failed with following response code %d %v", response.StatusCode, response.Body)
+		return nil, errors.Errorf("PostNotification failed with following response code %d", response.StatusCode)
 
 	}
 

@@ -10,7 +10,7 @@
   "cloudConnectorEndpoint":"/callwebhook",
   "jwtSignerURL" : "http://127.0.0.1:8080",
   "jwtSignerEndpoint" : "/jwt-signing/sign",
-  "awsURLHost": "test",
+  "awsURLHost": "https://dwbpgcbz8a.execute-api.us-east-1.amazonaws.com",
   "awsURLStage": "/prod",
   "alertEndpoint": "/alert",
   "heartbeatEndpoint": "/heartbeat",
