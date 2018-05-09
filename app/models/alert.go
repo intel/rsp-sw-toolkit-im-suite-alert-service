@@ -33,7 +33,7 @@ type Alert struct {
 	AlertNumber      int         `json:"alert_number"`
 	AlertDescription string      `json:"alert_description"`
 	Severity         string      `json:"severity"`
-	//Optional         interface{} `json:"optional"`
+	Optional         interface{} `json:"optional"`
 }
 
 // AlertMessage is the data from Context sensing SDK
@@ -63,7 +63,7 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	if heartbeat.MeshNodeID != "" {
 		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
 	}
-	//register.Optional = optionalMap
+	register.Optional = optionalMap
 	return register, heartbeat.DeviceID
 }
 
@@ -85,7 +85,7 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	if heartbeat.MeshNodeID != "" {
 		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
 	}
-	//deregister.Optional = optionalMap
+	deregister.Optional = optionalMap
 
 	return deregister, heartbeat.DeviceID
 }
@@ -109,7 +109,7 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
 	}
 
-	//heartbeatMissed.Optional = optionalMap
+	heartbeatMissed.Optional = optionalMap
 
 	return heartbeatMissed, heartbeat.DeviceID
 }
