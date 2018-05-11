@@ -45,6 +45,8 @@ type AlertMessage struct {
 	Value       Alert     `json:"value"`
 }
 
+const UndefinedFacility = "UNDEFINED_FACILITY"
+
 // GatewayRegisteredAlert generated when a new gateway is seen in a heartbeat
 func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	var register Alert
@@ -55,7 +57,11 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	register.Severity = "info"
 
 	register.SentOn = helper.UnixMilliNow()
-	register.Facilities = heartbeat.Facilities
+	if len(heartbeat.Facilities) > 0 {
+		register.Facilities = heartbeat.Facilities
+	} else {
+		register.Facilities = append(register.Facilities, UndefinedFacility)
+	}
 	register.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
@@ -77,7 +83,11 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	deregister.Severity = "urgent"
 
 	deregister.SentOn = helper.UnixMilliNow()
-	deregister.Facilities = heartbeat.Facilities
+	if len(heartbeat.Facilities) > 0 {
+		deregister.Facilities = heartbeat.Facilities
+	} else {
+		deregister.Facilities = append(deregister.Facilities, UndefinedFacility)
+	}
 	deregister.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
@@ -100,7 +110,11 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	heartbeatMissed.Severity = "critical"
 
 	heartbeatMissed.SentOn = helper.UnixMilliNow()
-	heartbeatMissed.Facilities = heartbeat.Facilities
+	if len(heartbeat.Facilities) > 0 {
+		heartbeatMissed.Facilities = heartbeat.Facilities
+	} else {
+		heartbeatMissed.Facilities = append(heartbeatMissed.Facilities, UndefinedFacility)
+	}
 	heartbeatMissed.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
