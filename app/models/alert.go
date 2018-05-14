@@ -55,13 +55,8 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	register.AlertNumber = 320
 	register.AlertDescription = "Gateway " + heartbeat.DeviceID + " registered"
 	register.Severity = "info"
-
 	register.SentOn = helper.UnixMilliNow()
-	if len(heartbeat.Facilities) > 0 {
-		register.Facilities = heartbeat.Facilities
-	} else {
-		register.Facilities = append(register.Facilities, UndefinedFacility)
-	}
+	register.Facilities = defineFacilities(heartbeat, register)
 	register.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
@@ -70,6 +65,7 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
 	}
 	register.Optional = optionalMap
+
 	return register, heartbeat.DeviceID
 }
 
@@ -83,11 +79,7 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	deregister.Severity = "urgent"
 
 	deregister.SentOn = helper.UnixMilliNow()
-	if len(heartbeat.Facilities) > 0 {
-		deregister.Facilities = heartbeat.Facilities
-	} else {
-		deregister.Facilities = append(deregister.Facilities, UndefinedFacility)
-	}
+	deregister.Facilities = defineFacilities(heartbeat, deregister)
 	deregister.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
@@ -108,13 +100,8 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	heartbeatMissed.AlertNumber = 321
 	heartbeatMissed.AlertDescription = "Gateway " + heartbeat.DeviceID + " missed heartbeat"
 	heartbeatMissed.Severity = "critical"
-
 	heartbeatMissed.SentOn = helper.UnixMilliNow()
-	if len(heartbeat.Facilities) > 0 {
-		heartbeatMissed.Facilities = heartbeat.Facilities
-	} else {
-		heartbeatMissed.Facilities = append(heartbeatMissed.Facilities, UndefinedFacility)
-	}
+	heartbeatMissed.Facilities = defineFacilities(heartbeat, heartbeatMissed)
 	heartbeatMissed.DeviceID = heartbeat.DeviceID
 	if heartbeat.MeshID != "" {
 		optionalMap["mesh_id"] = heartbeat.MeshID
@@ -122,8 +109,18 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	if heartbeat.MeshNodeID != "" {
 		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
 	}
-
 	heartbeatMissed.Optional = optionalMap
 
 	return heartbeatMissed, heartbeat.DeviceID
+}
+
+func defineFacilities(heartbeat Heartbeat, alert Alert) ([]string) {
+	if len(heartbeat.Facilities) > 0 {
+		alert.Facilities = heartbeat.Facilities
+	} else {
+		// if facilities field is empty
+		alert.Facilities = append(alert.Facilities, UndefinedFacility)
+	}
+
+	return alert.Facilities
 }
