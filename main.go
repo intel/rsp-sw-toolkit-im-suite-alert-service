@@ -48,8 +48,6 @@ const (
 	alertsUrn         = "urn:x-intel:context:retailsensingplatform:alerts"
 	jsonApplication   = "application/json;charset=utf-8"
 	connectionTimeout = 15
-
-	heartbeat = "HeartBeat"
 	alert     = "Alert"
 )
 
@@ -212,19 +210,13 @@ func processHeartbeat(jsonBytes *[]byte) error {
 	var heartbeatEvent models.HeartbeatMessage
 	err := json.Unmarshal(*jsonBytes, &heartbeatEvent)
 	if err != nil {
-		log.Errorf("error parsing Heartbeat: %s", err)
+		log.Errorf("error parsing Heartbeat %s", err)
 		mUnmarshalErr.Update(1)
 		return err
 	}
 
 	updateGatewayStatus(heartbeatEvent.Value)
 
-	notificationChan <- Notification{
-		NotificationMessage: "Process HeartBeat",
-		NotificationType:    heartbeat,
-		Data:                heartbeatEvent.Value,
-		GatewayID:           heartbeatEvent.Value.DeviceID,
-	}
 	log.Info("Processed heartbeat")
 	mSuccess.Update(1)
 	return nil
@@ -245,7 +237,7 @@ func processAlert(jsonBytes *[]byte) error {
 	//gatewayID required for JWT signing but should not be sent to the cloud
 	var gatewayID string
 	if err := json.Unmarshal(*jsonBytes, &data); err != nil {
-		log.Errorf("error parsing Alert: %s", err)
+		log.Errorf("error parsing Alert %s", err)
 		mUnmarshalErr.Update(1)
 		return err
 	}
@@ -261,7 +253,7 @@ func processAlert(jsonBytes *[]byte) error {
 	var alertEvent models.AlertMessage
 	err := json.Unmarshal(*jsonBytes, &alertEvent)
 	if err != nil {
-		log.Errorf("error parsing Alert: %s", err)
+		log.Errorf("error parsing Alert %s", err)
 		mUnmarshalErr.Update(1)
 		return err
 	}
@@ -278,7 +270,7 @@ func processAlert(jsonBytes *[]byte) error {
 }
 
 func notifyChannel() {
-	// CloudConnector URL to send both heartbeats and alerts
+	// CloudConnector URL to send alerts
 	cloudConnector := config.AppConfig.CloudConnectorURL + config.AppConfig.CloudConnectorEndpoint
 	notificationChanSize := config.AppConfig.NotificationChanSize
 
@@ -302,15 +294,9 @@ func notifyChannel() {
 }
 
 func (notificationData *Notification) generatePayload() error {
-	var event interface{}
-	var endPoint string
-	if notificationData.NotificationType == heartbeat {
-		event = notificationData.Data.(models.Heartbeat)
-		endPoint = config.AppConfig.HeartbeatEndpoint
-	} else {
-		event = notificationData.Data.(models.Alert)
-		endPoint = config.AppConfig.AlertEndpoint
-	}
+
+	event := notificationData.Data.(models.Alert)
+	endPoint := config.AppConfig.AlertEndpoint
 
 	// Get Signed JWT for message authentication
 	signedJwt, err := getSignedJwt(config.AppConfig.JwtSignerURL+config.AppConfig.JwtSignerEndpoint, notificationData.GatewayID)
@@ -429,6 +415,13 @@ func main() {
 
 	// Initialize metrics reporting
 	initMetrics()
+
+
+	if config.AppConfig.LoggingLevel == "debug" {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 
 	log.WithFields(log.Fields{
 		"Method": "main",

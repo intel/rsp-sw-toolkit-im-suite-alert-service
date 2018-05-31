@@ -29,7 +29,7 @@ type (
 		ServiceName, LoggingLevel, ContextSensing, Port string
 		NotificationChanSize                            int
 		AwsURLHost, AwsURLStage                         string
-		AlertEndpoint, HeartbeatEndpoint                string
+		AlertEndpoint                                   string
 		CloudConnectorURL, CloudConnectorEndpoint       string
 		JwtSignerEndpoint, JwtSignerURL                 string
 		TelemetryDataStoreName, TelemetryEndpoint       string
@@ -88,11 +88,6 @@ func InitConfig() error {
 	}
 
 	AppConfig.AlertEndpoint, err = config.GetString("alertEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.HeartbeatEndpoint, err = config.GetString("heartbeatEndpoint")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

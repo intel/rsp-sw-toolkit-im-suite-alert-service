@@ -1,7 +1,7 @@
 // RFID Alert Service API
 //
-// RFID Alert service provides the capabilities to monitor gateway status and alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and posted to the configured REST endpoint.
-// In a similar way, alert events are processed and posted to the REST endpoint.
+// RFID Alert service provides the capabilities to monitor gateway status and send alerts. Gateway status is updated periodically based on events sent through Heartbeat listener from CS SDK and alerts are generated when heartbeats are missed.
+// And also, alert events are processed and posted to the REST endpoint.
 //
 //  __Configuration Values__
 // <blockquote>RFID Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.
@@ -17,7 +17,6 @@
 // <blockquote>•<b> cloudConnectorEndpoint</b> - Endpoint for Cloud-connector service.</blockquote>
 // <blockquote>•<b> awsURLHost</b> - Host of AWS URL.</blockquote>
 // <blockquote>•<b> awsURLStage</b> - Stage of AWS URL.</blockquote>
-// <blockquote>•<b> heartbeatEndpoint</b> - Endpoint to send processed heartbeat.</blockquote>
 // <blockquote>•<b> alertEndpoint</b> - Endpoint to send processed alert.</blockquote>
 // <blockquote>•<b> jwtSignerURL</b> - URL for Jwt-signing service.</blockquote>
 // <blockquote>•<b> jwtSignerEndpoint</b> - Endpoint for Jwt-signing service.</blockquote>
@@ -45,7 +44,6 @@
 // &#9&#9"cloudConnectorEndpoint": "/aws/invoke",
 // &#9&#9"awsURLHost": "7r98jdfds.execute-api.us-west-2.amazonaws.com",
 // &#9&#9"awsURLStage": "/dev",
-// &#9&#9"heartbeatEndpoint": "/heartbeat",
 // &#9&#9"alertEndpoint": "/alert",
 // &#9&#9"jwtSigningURL": "http://127.0.0.1:8080",
 // &#9&#9"jwtSigningEndpoint": "/jwt-signing/sign",

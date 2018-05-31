@@ -13,7 +13,6 @@
   "awsURLHost": "/test",
   "awsURLStage": "/prod",
   "alertEndpoint": "/alert",
-  "heartbeatEndpoint": "/heartbeat",
   "secureMode" : true,
   "skipCertVerify" : true,
   "telemetryEndpoint": "",
