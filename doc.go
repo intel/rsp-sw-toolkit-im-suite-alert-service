@@ -15,11 +15,7 @@
 // <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that can be missed before the gateway gets deregistered.</blockquote>
 // <blockquote>•<b> cloudConnectorURL</b> - URL for Cloud-connector service.</blockquote>
 // <blockquote>•<b> cloudConnectorEndpoint</b> - Endpoint for Cloud-connector service.</blockquote>
-// <blockquote>•<b> awsURLHost</b> - Host of AWS URL.</blockquote>
-// <blockquote>•<b> awsURLStage</b> - Stage of AWS URL.</blockquote>
-// <blockquote>•<b> alertEndpoint</b> - Endpoint to send processed alert.</blockquote>
-// <blockquote>•<b> jwtSignerURL</b> - URL for Jwt-signing service.</blockquote>
-// <blockquote>•<b> jwtSignerEndpoint</b> - Endpoint for Jwt-signing service.</blockquote>
+// <blockquote>•<b> destination</b> - URL to send alert.</blockquote>
 // <blockquote>•<b> secureMode</b> - Boolean flag indicating if using secure connection to the Context Brokers.</blockquote>
 // <blockquote>•<b> skipCertVerify</b> - Boolean flag indicating if secure connection to the Context Brokers should skip certificate validation.</blockquote>
 // <blockquote>•<b> telemetryEndpoint</b> - URL of the telemetry service receiving the metrics from the service.</blockquote>
@@ -42,11 +38,7 @@
 // &#9&#9"maxMissedHeartbeats": 3,
 // &#9&#9"cloudConnectorURL": "http://127.0.0.1:8081",
 // &#9&#9"cloudConnectorEndpoint": "/aws/invoke",
-// &#9&#9"awsURLHost": "7r98jdfds.execute-api.us-west-2.amazonaws.com",
-// &#9&#9"awsURLStage": "/dev",
-// &#9&#9"alertEndpoint": "/alert",
-// &#9&#9"jwtSigningURL": "http://127.0.0.1:8080",
-// &#9&#9"jwtSigningEndpoint": "/jwt-signing/sign",
+// &#9&#9"destination": "http://www.test.com",
 // &#9&#9"secureMode": false,
 // &#9&#9"skipCertVerify": false,
 // &#9&#9"telemetryEndpoint": "http://166.130.9.122:8000",
@@ -68,7 +60,6 @@
 //
 // __Known services this service depends on:__
 // ○ Context Sensing
-// ○ Jwt-signing
 // ○ Cloud-connector
 //
 // __Known services that depend upon this service:__

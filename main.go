@@ -234,8 +234,8 @@ func processAlert(jsonBytes *[]byte) error {
 	log.Infof("Received alert:\n%s", jsoned)
 
 	var data map[string]interface{}
-	//gatewayID required for JWT signing but should not be sent to the cloud
 	var gatewayID string
+
 	if err := json.Unmarshal(*jsonBytes, &data); err != nil {
 		log.Errorf("error parsing Alert %s", err)
 		mUnmarshalErr.Update(1)
@@ -296,45 +296,17 @@ func notifyChannel() {
 func (notificationData *Notification) generatePayload() error {
 
 	event := notificationData.Data.(models.Alert)
-	endPoint := config.AppConfig.AlertEndpoint
-
-	// Get Signed JWT for message authentication
-	signedJwt, err := getSignedJwt(config.AppConfig.JwtSignerURL+config.AppConfig.JwtSignerEndpoint, notificationData.GatewayID)
-	if err != nil {
-		return errors.Wrapf(err, "problem getting the signed jwt")
-	}
 
 	var payload models.CloudConnectorPayload
 	payload.Method = "POST"
-	payload.URL = config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
+	payload.URL = config.AppConfig.AlertDestination
 	header := http.Header{}
 	header["Content-Type"] = []string{"application/json"}
-	header["Authorization"] = []string{"Bearer " + signedJwt}
 	payload.Header = header
 	payload.IsAsync = true
 	payload.Payload = event
 	notificationData.Data = payload
 	return nil
-}
-
-func getSignedJwt(jwtSignerURL string, gatewayID string) (string, error) {
-	jwtRequest := models.JwtSignerRequest{
-		Claims: map[string]string{
-			"iss": gatewayID,
-		},
-	}
-
-	response, err := postNotification(jwtRequest, jwtSignerURL)
-	if err != nil {
-		return "", errors.Wrapf(err, "unable to make JWT http request")
-	}
-
-	jwtResponse := models.JwtSignerResponse{}
-	if unmarshalErr := json.Unmarshal(response, &jwtResponse); unmarshalErr != nil {
-		return "", errors.Wrapf(err, "failed to Unmarshal responseData")
-	}
-
-	return jwtResponse.Token, nil
 }
 
 func postNotification(data interface{}, to string) ([]byte, error) {
@@ -374,9 +346,9 @@ func postNotification(data interface{}, to string) ([]byte, error) {
 
 	}
 
-	var jwtResponse []byte
+	var responseBytes []byte
 	if response.Body != nil {
-		jwtResponse, err = ioutil.ReadAll(response.Body)
+		responseBytes, err = ioutil.ReadAll(response.Body)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to ReadALL response.Body")
 		}
@@ -393,7 +365,7 @@ func postNotification(data interface{}, to string) ([]byte, error) {
 
 	log.Debug("Notification posted")
 	mSuccess.Update(1)
-	return jwtResponse, nil
+	return responseBytes, nil
 }
 
 func main() {

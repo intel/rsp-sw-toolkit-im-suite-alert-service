@@ -66,7 +66,7 @@ func TestProcessHeartbeat(t *testing.T) {
 func TestGeneratePayloadAlert(t *testing.T) {
 	testNotification := new(Notification)
 	inputData := mockGenerateAlert()
-	alertPayloadURL := config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.AlertEndpoint
+	alertPayloadURL := config.AppConfig.AlertDestination
 	var alert models.Alert
 	err := json.Unmarshal(inputData, &alert)
 	if err != nil {
@@ -82,7 +82,6 @@ func TestGeneratePayloadAlert(t *testing.T) {
 		t.Errorf("Server returned a error %v", serverErr)
 	}
 	defer testMockServer.Close()
-	config.AppConfig.JwtSignerURL = testMockServer.URL
 
 	generateErr := testNotification.generatePayload()
 	if generateErr != nil {
@@ -195,14 +194,6 @@ func TestPostNotification(t *testing.T) {
 	if postErr != nil {
 		t.Errorf("Posting notification failed %s", postErr)
 	}
-	mockCloudConnector = testMockServer.URL + "/jwt-signing/sign"
-	jwtResponse, postErr := postNotification(inputData, mockCloudConnector)
-	if postErr != nil {
-		t.Errorf("Posting notification failed %s", postErr)
-	}
-	if jwtResponse == nil {
-		t.Errorf("JWTResponse is nil %s", postErr)
-	}
 	mockCloudConnector = "http://wrongURL:8080" + "/aws-test/invoke"
 	_, postErr = postNotification(inputData, mockCloudConnector)
 	if postErr == nil {
@@ -218,11 +209,6 @@ func getTestMockServer() (*httptest.Server, error) {
 			serverErr = errors.Errorf("Expected 'POST' request, received '%s'", request.Method)
 		}
 		switch request.URL.EscapedPath() {
-		case "/jwt-signing/sign":
-			data := "xxxxx.yyyyy.zzzzz"
-			jsonData, _ := json.Marshal(data)
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write(jsonData)
 
 		case "/	aws/invoke":
 			data := "success"
