@@ -28,3 +28,11 @@ type CloudConnectorPayload struct {
 	Method  string      `json:"method"`
 	IsAsync bool        `json:"isasync"`
 }
+
+type JwtSignerResponse struct {
+	Token string `json:"token"`
+}
+
+type JwtSignerRequest struct {
+	Claims map[string]string `json:"claims"`
+}
