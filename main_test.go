@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )
@@ -42,79 +42,29 @@ func TestMain(m *testing.M) {
 		}).Fatal(err.Error())
 	}
 
-	notificationChan = make(chan Notification, config.AppConfig.NotificationChanSize)
 	os.Exit(m.Run())
 }
 
-func Test_processAlert(t *testing.T) {
-	inputData := mockGenerateAlertFromGateway()
-	alertError := processAlert(&inputData)
-	if alertError != nil {
-		t.Errorf("Error processing alerts %s", alertError)
-	}
-}
-
 func TestProcessHeartbeat(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 	inputData := mockGenerateHeartbeat()
-	heartBeatError := processHeartbeat(&inputData)
+	heartBeatError := processHeartbeat(&inputData, notificationChan)
 	if heartBeatError != nil {
 		t.Errorf("Error processing heartbeat %s", heartBeatError)
 	}
 
 }
 
-func TestGeneratePayloadAlert(t *testing.T) {
-	testNotification := new(Notification)
-	inputData := mockGenerateAlert()
-	alertPayloadURL := config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + config.AppConfig.AlertEndpoint
-	var alert models.Alert
-	err := json.Unmarshal(inputData, &alert)
-	if err != nil {
-		t.Errorf("error parsing Heartbeat: %s", err)
-	}
-
-	testNotification.NotificationType = "Alert"
-	testNotification.NotificationMessage = "ProcessAlert"
-	testNotification.Data = alert
-	testNotification.GatewayID = "rrs-gateway"
-	testMockServer, serverErr := getTestMockServer()
-	if serverErr != nil {
-		t.Errorf("Server returned a error %v", serverErr)
-	}
-	defer testMockServer.Close()
-	config.AppConfig.JwtSignerURL = testMockServer.URL
-
-	generateErr := testNotification.generatePayload()
-	if generateErr != nil {
-		t.Errorf("Error in generating payload %v", generateErr)
-	}
-	notifyData, ok := testNotification.Data.(models.CloudConnectorPayload)
-	if !ok {
-		t.Error("Found incompatible payload type in notification data")
-	}
-	if notifyData.URL != alertPayloadURL {
-		t.Error("Generated Payload has wrong URL for sending alerts")
-	}
-	alertData, ok := notifyData.Payload.(models.Alert)
-	if !ok {
-		t.Error("Body of payload is not of alert type")
-	}
-	validData := reflect.DeepEqual(alertData, alert)
-	if !validData {
-		t.Error("Heartbeat data and generated payload data is not equal")
-	}
-
-}
-
 func TestGatewayStatus(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 	watchdogSeconds := 1
 	//Starting gateway status check in separate goroutine
-	go monitorHeartbeat(watchdogSeconds)
+	go monitorHeartbeat(watchdogSeconds, notificationChan)
 	missedHeartBeats := config.AppConfig.MaxMissedHeartbeats
 
 	// check for gateway registered alert
 	inputData := mockGenerateHeartbeat()
-	heartBeatError := processHeartbeat(&inputData)
+	heartBeatError := processHeartbeat(&inputData, notificationChan)
 	if heartBeatError != nil {
 		t.Errorf("Error processing heartbeat %s", heartBeatError)
 	}
@@ -122,10 +72,9 @@ func TestGatewayStatus(t *testing.T) {
 		t.Error("Failed to register gateway")
 	}
 
-
 	//Delay heartbeat by 3 seconds to check the functionality of missed heartbeat and gateway deregistered alert
 	for i := 0; i <= missedHeartBeats; i++ {
-		heartBeatError := processHeartbeat(&inputData)
+		heartBeatError := processHeartbeat(&inputData, notificationChan)
 		if heartBeatError != nil {
 			t.Errorf("Error processing heartbeat %s", heartBeatError)
 		}
@@ -151,28 +100,27 @@ func TestHeartbeatAlert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error generating heartbeat %s", err)
 	}
-	heartbeatAlert, deviceId := models.GatewayRegisteredAlert(heartbeat)
-	if deviceId != heartbeat.DeviceID {
+	heartbeatAlert, deviceID := models.GatewayRegisteredAlert(heartbeat)
+	if deviceID != heartbeat.DeviceID {
 		t.Error("Alert device id does not match hearbeat device id")
 	}
 	if len(heartbeatAlert.Facilities) != len(heartbeat.Facilities) {
 		t.Error("Number of alert facilitites does not match heartbeat facilities")
 	}
-	var heartbeatFacilities []string
-	for _, value := range heartbeat.Facilities {
-		heartbeatFacilities = append(heartbeatFacilities, value)
-	}
-	if !reflect.DeepEqual(heartbeatAlert.Facilities, heartbeatFacilities) {
-		t.Error("Facilites from alert is not the same as heartbeat facilities")
-	}
 
+	var heartbeatFacilities []string
+	heartbeatFacilities = append(heartbeatFacilities, heartbeat.Facilities...)
+
+	if !reflect.DeepEqual(heartbeatAlert.Facilities, heartbeatFacilities) {
+		t.Error("Facilities from alert is not the same as heartbeat facilities")
+	}
 
 	input = mockGenerateHeartbeatNoFacility()
 	heartbeat, err = generateHeartbeatModel(input)
 	if err != nil {
 		t.Fatalf("Error generating heartbeat with no facility %s", err)
 	}
-	heartbeatAlert, deviceId = models.GatewayRegisteredAlert(heartbeat)
+	heartbeatAlert, _ = models.GatewayRegisteredAlert(heartbeat)
 	// Alert generated from heartbeat with no facilities should have facilities field with value "UNDEFINED_FACILITY"
 	if len(heartbeatAlert.Facilities) != 1 {
 		t.Errorf("Alert generated from heartbeat with no facilities should have a length of one")
@@ -182,96 +130,165 @@ func TestHeartbeatAlert(t *testing.T) {
 	}
 }
 
-
-func TestPostNotification(t *testing.T) {
-	testMockServer, serverErr := getTestMockServer()
-	if serverErr != nil {
-		t.Errorf("Server returned a error %v", serverErr)
-	}
-	defer testMockServer.Close()
-	inputData := mockGenerateHeartbeat()
-	mockCloudConnector := testMockServer.URL + "/aws-test/invoke"
-	_, postErr := postNotification(inputData, mockCloudConnector)
-	if postErr != nil {
-		t.Errorf("Posting notification failed %s", postErr)
-	}
-	mockCloudConnector = testMockServer.URL + "/jwt-signing/sign"
-	jwtResponse, postErr := postNotification(inputData, mockCloudConnector)
-	if postErr != nil {
-		t.Errorf("Posting notification failed %s", postErr)
-	}
-	if jwtResponse == nil {
-		t.Errorf("JWTResponse is nil %s", postErr)
-	}
-	mockCloudConnector = "http://wrongURL:8080" + "/aws-test/invoke"
-	_, postErr = postNotification(inputData, mockCloudConnector)
-	if postErr == nil {
-		t.Error("Posting notification was successful with wrong URL")
-	}
-
-}
-
-func getTestMockServer() (*httptest.Server, error) {
-	var serverErr error
+func TestProcessShippingNoticeWRINs(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost {
-			serverErr = errors.Errorf("Expected 'POST' request, received '%s'", request.Method)
+		time.Sleep(1 * time.Second)
+		if request.URL.EscapedPath() != "/skus" {
+			t.Errorf("Expected request to '/skus', received %s", request.URL.EscapedPath())
 		}
-		switch request.URL.EscapedPath() {
-		case "/jwt-signing/sign":
-			data := "xxxxx.yyyyy.zzzzz"
-			jsonData, _ := json.Marshal(data)
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write(jsonData)
+		var jsonData []byte
+		if request.URL.EscapedPath() == "/skus" {
+			result := buildProductData(0.0, 0.0, 0.0, 0.0, "00111111")
+			jsonData, _ = json.Marshal(result)
+		}
 
-		case "/	aws/invoke":
-			data := "success"
-			jsonData, _ := json.Marshal(data)
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write(jsonData)
-		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
 	}))
-	return testServer, serverErr
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+
+	inputData := mockGenerateShippingNoticeWRINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
 }
 
-// Alert from gateway which includes gateway_id field
-func mockGenerateAlertFromGateway() []byte {
-	testAlert := []byte(`{
-			"macaddress":  "02:42:ac:1a:00:05",
-			"application": "rsp_collector-service",
-			"providerId":  -1,
-  			"dateTime":    "2018-04-13T20:03:11.328Z",
-			"value": {
-						"sent_on": 1523904547000,
-						"facilities": ["front"],
-						"device_id": "Sensor1",
-						"gateway_id": "rrs-gateway",
-						"alert_number": 22,
-						"alert_description": "sensor disconnected",
-						"severity": "info"
-			}
-	}`)
-	return testAlert
-}
-
-// Alert for cloud which excludes gateway_id field
-func mockGenerateAlert() []byte {
-	alert := []byte(`{
-		"macaddress":  "02:42:ac:1a:00:05",
-		"application": "rsp_collector-service",
-		"providerId":  -1,
-		"dateTime": "2017-08-25T22:29:23.816Z",
-		"value": {
-			"sent_on": 1503700192960,
-			"facilities": ["front"],
-			"device_id": "Sensor1",
-			"alert_number": 22,
-			"alert_description": "sensor disconnected",
-			"severity": "info", 
-			"optional": { "mesh_id": "rrs-gateway" }
+func TestProcessShippingNoticeGTINs(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		time.Sleep(1 * time.Second)
+		if request.URL.EscapedPath() != "/skus" {
+			t.Errorf("Expected request to '/skus', received %s", request.URL.EscapedPath())
 		}
-	}`)
-	return alert
+		var jsonData []byte
+		if request.URL.EscapedPath() == "/skus" {
+			result := buildProductData(0.0, 0.0, 0.0, 0.0, "00111111")
+			jsonData, _ = json.Marshal(result)
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	inputData := mockGenerateShippingNoticeGTINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
+}
+
+func TestProcessShippingNoticeGTINsBadRequest(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusBadRequest)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	inputData := mockGenerateShippingNoticeGTINs()
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError == nil {
+		t.Errorf("Expected error")
+	}
+
+}
+
+func TestProcessShippingNoticeGTINMaxs(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		time.Sleep(1 * time.Second)
+		if request.URL.EscapedPath() != "/skus" {
+			t.Errorf("Expected request to '/skus', received %s", request.URL.EscapedPath())
+		}
+		var jsonData []byte
+		if request.URL.EscapedPath() == "/skus" {
+			result := buildProductData(0.0, 0.0, 0.0, 0.0, "00111111")
+			jsonData, _ = json.Marshal(result)
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	config.AppConfig.BatchSizeMax = 1
+	inputData := mockGenerateShippingNoticeGTINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
+}
+
+func TestProcessShippingNoticeGTINMaxsBadRequest(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusBadRequest)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	config.AppConfig.BatchSizeMax = 1
+	inputData := mockGenerateShippingNoticeGTINs()
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError == nil {
+		t.Errorf("Expected error.")
+	}
+
+}
+
+func TestMakeGetCallToSkuMappingWithError(t *testing.T) {
+	skuMapping := NewSkuMapping("/skus")
+	_, err := MakeGetCallToSkuMapping("", skuMapping.url)
+	if err == nil {
+		t.Errorf("Expected error.")
+	}
+
+}
+
+func TestMakeGetCallToSkuMappingWithMashallError(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		time.Sleep(1 * time.Second)
+		if request.URL.EscapedPath() != "/skus" {
+			t.Errorf("Expected request to '/skus', received %s", request.URL.EscapedPath())
+		}
+		var jsonData []byte
+		if request.URL.EscapedPath() == "/skus" {
+			//result := buildProductData(0.0, 0.0, 0.0, 0.0, "00111111")
+			jsonData, _ = json.Marshal("this")
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+
+	_, errorCall := MakeGetCallToSkuMapping("", skuMapping.url)
+	if errorCall == nil {
+		t.Errorf("Error expected")
+	}
+
 }
 
 func mockGenerateHeartbeat() []byte {
@@ -298,6 +315,57 @@ func mockGenerateHeartbeat() []byte {
 		}
 	}`)
 	return heartbeat
+}
+
+func mockGenerateShippingNoticeWRINs() []byte {
+	shippingNotice := []byte(`{
+  			"macaddress": "02:42:0a:00:1e:1a",
+  			"application": "productmasterdataservicewithdropbox",
+  			"providerId": -1,
+  			"dateTime": "2018-07-30T19:07:10.461Z",
+  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
+  			"value": {
+    			"data": [
+      			{
+        			"epc": "993402662C00000025871534"
+      			},
+      			{
+        			"epc": "993402662C3A549106C00000"
+      			},
+      			{
+        			"epc": "993402662C3A549107C00000"
+      			},
+      			{
+        			"epc": "993402662C3A549105C00000"
+      			},
+      			{
+        			"epc": "993402662C00000025871641"
+      			}
+    			]
+  			}
+	}`)
+	return shippingNotice
+}
+
+func mockGenerateShippingNoticeGTINs() []byte {
+	shippingNotice := []byte(`{
+  			"macaddress": "02:42:0a:00:1e:1a",
+  			"application": "productmasterdataservicewithdropbox",
+  			"providerId": -1,
+  			"dateTime": "2018-07-30T19:07:10.461Z",
+  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
+  			"value": {
+    			"data": [
+      			{
+        			"epc": "30143639F84191AD22900204"
+      			},
+      			{
+        			"epc": "30143639F84191AD66100207"
+      			}
+    			]
+  			}
+	}`)
+	return shippingNotice
 }
 
 func mockGenerateHeartbeatNoFacility() []byte {
@@ -332,4 +400,29 @@ func generateHeartbeatModel(input []byte) (models.Heartbeat, error) {
 	}
 
 	return heartbeatEvent.Value, nil
+}
+
+func buildProductData(becomingReadable float64, beingRead float64, dailyTurn float64, exitError float64, gtinSku string) models.SkuMappingResponse {
+	var metadata = make(map[string]interface{})
+	metadata["becoming_readable"] = becomingReadable
+	metadata["being_read"] = beingRead
+	metadata["daily_turn"] = dailyTurn
+	metadata["exit_error"] = exitError
+
+	gtinMetadata := models.GtinMetadata{
+		Gtin: gtinSku,
+	}
+
+	gtinList := []models.GtinMetadata{gtinMetadata}
+
+	var data = models.ProdData{
+		GtinList: gtinList,
+	}
+
+	dataList := []models.ProdData{data}
+
+	var result = models.SkuMappingResponse{
+		ProdData: dataList,
+	}
+	return result
 }

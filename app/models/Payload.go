@@ -21,6 +21,7 @@ package models
 
 import "net/http"
 
+// CloudConnectorPayload is the model containing the payload send to webhook url
 type CloudConnectorPayload struct {
 	URL     string      `json:"url"`
 	Header  http.Header `json:"header"`

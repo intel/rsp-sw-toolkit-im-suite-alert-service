@@ -10,11 +10,14 @@
   "cloudConnectorEndpoint":"/callwebhook",
   "jwtSignerURL" : "http://127.0.0.1:8080",
   "jwtSignerEndpoint" : "/jwt-signing/sign",
-  "awsURLHost": "/test",
-  "awsURLStage": "/prod",
-  "alertEndpoint": "/alert",
   "secureMode" : true,
   "skipCertVerify" : true,
   "telemetryEndpoint": "",
-  "telemetryDataStoreName": ""
+  "telemetryDataStoreName": "",
+  "mappingSkuURL" : "http://127.0.0.1:8081",
+  "mappingSkuEndpoint" :"/skus",
+  "epcToWrin" : true,
+  "destination" : "http://test.com",
+  "batchSizeMax" : 50,
+  "sendNotWhitelistedAlert" : false
 }

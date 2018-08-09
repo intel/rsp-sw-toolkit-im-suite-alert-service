@@ -17,30 +17,43 @@
  * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
  */
 
-package models
+package asn
 
 import (
+	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"time"
+	"encoding/json"
+	"github.com/pkg/errors"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
 )
 
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
+func buildNotWhitelistedAlert(notWhitelisted []models.Gtin) models.Alert {
+	var notWhitelistedAlert models.Alert
+	notWhitelistedAlert.SentOn = helper.UnixMilliNow()
+	notWhitelistedAlert.AlertDescription = "Received a list of ASNs that are not whitelisted!"
+	notWhitelistedAlert.DeviceID = ""
+	notWhitelistedAlert.Facilities = []string{}
+	notWhitelistedAlert.AlertNumber = alert.NotWhitelisted
+	notWhitelistedAlert.Severity = "critical"
+	notWhitelistedAlert.Optional = notWhitelisted
+	return notWhitelistedAlert
 }
 
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
+func GenerateNotWhitelistedAlert(notWhitelisted []models.Gtin) ([]byte, error) {
+	var alertMessage models.AlertMessage
+	alert := buildNotWhitelistedAlert(notWhitelisted)
+
+	alertMessage.Application = "advancedshippingnotice"
+	alertMessage.Value = alert
+	alertMessage.Datetime = time.Now()
+	alertMessage.ProviderID = -1
+	alertMessage.MACAddress = "00:00:00:00:00:00"
+
+	alertMessageBytes, err := json.Marshal(alertMessage)
+	if err != nil {
+		return nil, errors.Wrap(err, "Marshaling AlertMessage to []bytes")
+	}
+
+	return alertMessageBytes, nil
 }

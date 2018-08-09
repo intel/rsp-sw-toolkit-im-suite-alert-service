@@ -22,53 +22,63 @@ package main
 import (
 	"bytes"
 	"context"
-	"context_linux_go/core"
-	"context_linux_go/core/sensing"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
+	"context_linux_go/core"
+	"context_linux_go/core/sensing"
+
+	"fmt"
+	"strconv"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
+	metrics "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
 	reporter "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics-influxdb"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/asn"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/sgtin96"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/utils"
 )
 
 const (
 	heartbeatUrn      = "urn:x-intel:context:retailsensingplatform:heartbeat"
 	alertsUrn         = "urn:x-intel:context:retailsensingplatform:alerts"
-	jsonApplication   = "application/json;charset=utf-8"
-	connectionTimeout = 15
-	alert     = "Alert"
+	shippingNoticeUrn = "urn:x-intel:context:retailsensingplatform:shippingmasterdata"
 )
 
-// Notification struct
-type Notification struct {
-	NotificationType    string
-	NotificationMessage string
-	Data                interface{}
-	GatewayID           string
-	Endpoint            string
+var gateway = models.GetInstanceGateway()
+
+// SkuMapping struct for the SkuMapping
+type SkuMapping struct {
+	url string
 }
 
-var gateway = models.GetInstanceGateway()
-var notificationChan chan Notification
+// NewSkuMapping initialize new SkuMapping
+func NewSkuMapping(url string) *SkuMapping {
+	return &SkuMapping{
+		url: url,
+	}
+}
 
 func init() {
 
 }
 
 // nolint: gocyclo
-func initSensing() {
+func initSensing(notificationChan chan alert.Notification) {
 	onSensingStarted := make(core.SensingStartedChannel, 1)
 	onSensingError := make(core.ErrorChannel, 1)
 
@@ -90,6 +100,7 @@ func initSensing() {
 	go func(options core.SensingOptions) {
 		onHeartbeat := make(core.ProviderItemChannel, 10)
 		onAlert := make(core.ProviderItemChannel, 10)
+		onShippingNotice := make(core.ProviderItemChannel, 10)
 
 		for {
 			select {
@@ -105,7 +116,8 @@ func initSensing() {
 				log.Info("Sensing has started")
 				sensingSdk.AddContextTypeListener("*:*", heartbeatUrn, &onHeartbeat, &onSensingError)
 				sensingSdk.AddContextTypeListener("*:*", alertsUrn, &onAlert, &onSensingError)
-				log.Info("Waiting for Heartbeat, Event, and Alert data....")
+				sensingSdk.AddContextTypeListener("*:*", shippingNoticeUrn, &onShippingNotice, &onSensingError)
+				log.Info("Waiting for Heartbeat, Shipping, and Alert data....")
 
 			case heartbeat := <-onHeartbeat:
 				jsonBytes, err := json.MarshalIndent(*heartbeat, "", "  ")
@@ -113,26 +125,44 @@ func initSensing() {
 					log.Errorf("Unable to process heartbeat")
 				}
 
-				if err := processHeartbeat(&jsonBytes); err != nil {
+				if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
 					log.WithFields(log.Fields{
 						"Method": "main",
 						"Action": "process HeartBeat",
 						"Error":  err.Error(),
 					}).Error("error processing heartbeat data")
 				}
-			case alert := <-onAlert:
+			case alertItem := <-onAlert:
 				var err error
-				jsonBytes, err := json.MarshalIndent(*alert, "", "  ")
+				jsonBytes, err := json.MarshalIndent(*alertItem, "", "  ")
 				if err != nil {
 					log.Errorf("Unable to process alert")
 				}
-				if err := processAlert(&jsonBytes); err != nil {
+				if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
 					log.WithFields(log.Fields{
 						"Method": "main",
 						"Action": "process Alert",
 						"Error":  err.Error(),
 					}).Error("error processing alert")
 				}
+			case shippingNotice := <-onShippingNotice:
+
+				go func(notices *core.ItemData) {
+					var err error
+					jsonBytes, err := json.MarshalIndent(*shippingNotice, "", "  ")
+					if err != nil {
+						log.Errorf("Unable to process alert")
+					}
+					skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
+					if err := skuMapping.processShippingNotice(&jsonBytes, notificationChan); err != nil {
+						log.WithFields(log.Fields{
+							"Method": "main",
+							"Action": "process Shipping Notice",
+							"Error":  err.Error(),
+						}).Error("error processing alert")
+					}
+				}(shippingNotice)
+
 			case err := <-options.OnError:
 				log.Fatalf("Received sensingSdk error: %v, exiting...", err)
 			}
@@ -140,7 +170,7 @@ func initSensing() {
 	}(sensingOptions)
 }
 
-func monitorHeartbeat(watchdogSeconds int) {
+func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notification) {
 
 	for {
 		<-time.After(time.Duration(watchdogSeconds) * time.Second)
@@ -152,30 +182,34 @@ func monitorHeartbeat(watchdogSeconds int) {
 					if gateway.DeregisterGateway() {
 						gatewayDeregistered, gatewayID := models.GatewayDeregisteredAlert(gateway.GetLastHeartbeat())
 						log.Debug("Gateway Deregistered")
-						notificationChan <- Notification{
-							NotificationType:    alert,
-							NotificationMessage: "Gateway Deregistered Alert",
-							Data:                gatewayDeregistered,
-							GatewayID:           gatewayID,
-						}
+						go func() {
+							notificationChan <- alert.Notification{
+								NotificationType:    alert.AlertType,
+								NotificationMessage: "Gateway Deregistered Alert",
+								Data:                gatewayDeregistered,
+								GatewayID:           gatewayID,
+							}
+						}()
 					}
 				} else {
 					// send missed heartbeat alert
 					missedHeartbeat, gatewayID := models.GatewayMissedHeartbeatAlert(gateway.GetLastHeartbeat())
 					log.Debug("Missed heartbeat")
-					notificationChan <- Notification{
-						NotificationType:    alert,
-						NotificationMessage: "Missed HeartBeat Alert",
-						Data:                missedHeartbeat,
-						GatewayID:           gatewayID,
-					}
+					go func() {
+						notificationChan <- alert.Notification{
+							NotificationType:    alert.AlertType,
+							NotificationMessage: "Missed HeartBeat Alert",
+							Data:                missedHeartbeat,
+							GatewayID:           gatewayID,
+						}
+					}()
 				}
 			}
 		}
 	}
 }
 
-func updateGatewayStatus(hb models.Heartbeat) {
+func updateGatewayStatus(hb models.Heartbeat, notificationChan chan alert.Notification) {
 	lastHeartbeatSeen := time.Now()
 	lastHeartbeat := hb
 	missedHeartBeats := 0
@@ -184,19 +218,21 @@ func updateGatewayStatus(hb models.Heartbeat) {
 			if gateway.RegisterGateway() {
 				gatewayRegistered, gatewayID := models.GatewayRegisteredAlert(gateway.GetLastHeartbeat())
 				log.Debug("Gateway Registered")
-				notificationChan <- Notification{
-					NotificationType:    alert,
-					NotificationMessage: "Gateway Registered Alert",
-					Data:                gatewayRegistered,
-					GatewayID:           gatewayID,
-				}
+				go func() {
+					notificationChan <- alert.Notification{
+						NotificationType:    alert.AlertType,
+						NotificationMessage: "Gateway Registered Alert",
+						Data:                gatewayRegistered,
+						GatewayID:           gatewayID,
+					}
+				}()
 			}
 
 		}
 	}
 }
 
-func processHeartbeat(jsonBytes *[]byte) error {
+func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
 	// Metrics
 	metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Attempt", nil).Update(1)
 	startTime := time.Now()
@@ -215,185 +251,239 @@ func processHeartbeat(jsonBytes *[]byte) error {
 		return err
 	}
 
-	updateGatewayStatus(heartbeatEvent.Value)
+	updateGatewayStatus(heartbeatEvent.Value, notificationChan)
 
 	log.Info("Processed heartbeat")
 	mSuccess.Update(1)
 	return nil
 }
 
-func processAlert(jsonBytes *[]byte) error {
-	// Metrics
-	metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Attempt", nil).Update(1)
-	startTime := time.Now()
-	defer metrics.GetOrRegisterTimer("RFID-Alert.ProcessAlert.Latency", nil).UpdateSince(startTime)
-	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Success", nil)
-	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Unmarshal-Error", nil)
-
-	jsoned := string(*jsonBytes)
-	log.Infof("Received alert:\n%s", jsoned)
+func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
+	log.Debugf("Received data:\n%s", string(*jsonBytes))
 
 	var data map[string]interface{}
-	//gatewayID required for JWT signing but should not be sent to the cloud
-	var gatewayID string
-	if err := json.Unmarshal(*jsonBytes, &data); err != nil {
-		log.Errorf("error parsing Alert %s", err)
-		mUnmarshalErr.Update(1)
-		return err
-	}
-	if value, ok := data["value"].(map[string]interface{}); !ok {
-		return errors.New("Type assertion failed")
-	} else {
-		gatewayID, ok = value["gateway_id"].(string)
-		if !ok {
-			return errors.New("Type assertion failed")
-		}
+
+	decoder := json.NewDecoder(bytes.NewBuffer(*jsonBytes))
+	if err := decoder.Decode(&data); err != nil {
+		return errors.Wrap(err, "unable to Decode data")
 	}
 
-	var alertEvent models.AlertMessage
-	err := json.Unmarshal(*jsonBytes, &alertEvent)
+	value, ok := data["value"].(map[string]interface{})
+	if !ok { //nolint: golint
+		return errors.New("Missing Value Field")
+	}
+
+	epcs, ok := value["data"].([]interface{})
+	if !ok { //nolint: golint
+		return errors.New("Missing Data Field")
+	}
+
+	allGtins, err := convertToGtinsOrWrins(epcs)
+
+	oDataQuery := buildODataQuery(allGtins)
 	if err != nil {
-		log.Errorf("error parsing Alert %s", err)
-		mUnmarshalErr.Update(1)
-		return err
-	}
-	notificationChan <- Notification{
-		NotificationMessage: "Process Alert",
-		NotificationType:    alert,
-		Data:                alertEvent.Value,
-		GatewayID:           gatewayID,
+		log.Errorf("Problem converting shipping notice data to GTINs or WRINs: %s", err)
 	}
 
-	log.Info("Processed alert")
-	mSuccess.Update(1)
-	return nil
-}
-
-func notifyChannel() {
-	// CloudConnector URL to send alerts
-	cloudConnector := config.AppConfig.CloudConnectorURL + config.AppConfig.CloudConnectorEndpoint
-	notificationChanSize := config.AppConfig.NotificationChanSize
-
-	for notification := range notificationChan {
-		if len(notificationChan) >= notificationChanSize-10 {
-			log.WithFields(log.Fields{
-				"notificationChanSize": len(notificationChan),
-				"maxChannelSize":       notificationChanSize,
-			}).Warn("Channel size getting full!")
+	var whitelistedGtins []string
+	var stringBytes bytes.Buffer
+	if len(oDataQuery) > config.AppConfig.BatchSizeMax {
+		var batchSize = config.AppConfig.BatchSizeMax
+		var start = 0
+		for start < len(oDataQuery) {
+			stringBytes.WriteString(strings.Join(oDataQuery[start:start+batchSize], " or "))
+			gtinsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
+			if callErr != nil {
+				log.WithFields(log.Fields{
+					"Method": "processShippingNotice",
+					"Action": "Calling MakeGetCallToSkuMapping",
+					"Error":  callErr.Error(),
+				}).Error(callErr)
+				return errors.Wrapf(callErr, "unable to get list of gtins from mapping sku service")
+			}
+			whitelistedGtins = append(whitelistedGtins, gtinsFromSkuMapping...)
+			start += batchSize
 		}
-		generateErr := notification.generatePayload()
-		if generateErr != nil {
-			log.Errorf("Problem generating payload for %s, %s", notification.NotificationType, generateErr)
-		} else {
-			_, err := postNotification(notification.Data, cloudConnector)
-			if err != nil {
-				log.Errorf("Problem sending notification for %s, %s", notification.NotificationMessage, err)
+	} else {
+		stringBytes.WriteString(strings.Join(oDataQuery, " or "))
+		gtinsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
+		if callErr != nil {
+			log.WithFields(log.Fields{
+				"Method": "processShippingNotice",
+				"Action": "Calling MakeGetCallToSkuMapping",
+				"Error":  callErr.Error(),
+			}).Error(callErr)
+			return errors.Wrapf(callErr, "unable to get list of gtins from mapping sku service")
+		}
+		whitelistedGtins = append(whitelistedGtins, gtinsFromSkuMapping...)
+	}
+
+	notWhitelisted := utils.Filter(allGtins, func(v string) bool {
+		return !utils.Include(whitelistedGtins, v)
+	})
+
+	asnList, err := models.ConvertToASNList(notWhitelisted)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Method": "processShippingNotice",
+			"Action": "Calling ConvertToASNList",
+			"Error":  err.Error(),
+		}).Error(err)
+		return errors.Wrapf(err, "unable to convert to asns")
+	}
+
+	if len(notWhitelisted) > 0 {
+		alertBytes, err := asn.GenerateNotWhitelistedAlert(asnList)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"Method": "processShippingNotice",
+				"Action": "Calling GenerateNotWhitelistedAlert",
+				"Error":  err.Error(),
+			}).Error(err)
+			return errors.Wrapf(err, "unable to generate alert to send for asns not whitelisted")
+		}
+
+		log.Errorf("Received asn with tags not whitelisted. %s", notWhitelisted)
+		if config.AppConfig.SendNotWhitelistedAlert {
+			if processErr := alert.ProcessAlert(&alertBytes, notificationChan); processErr != nil {
+				log.WithFields(log.Fields{
+					"Method": "processShippingNotice",
+					"Action": "Calling ProcessAlert",
+					"Error":  err.Error(),
+				}).Error(err)
+				return errors.Wrapf(err, "unable to process alert for shipping notice")
 			}
 		}
 	}
-}
 
-func (notificationData *Notification) generatePayload() error {
-
-	event := notificationData.Data.(models.Alert)
-	endPoint := config.AppConfig.AlertEndpoint
-
-	// Get Signed JWT for message authentication
-	signedJwt, err := getSignedJwt(config.AppConfig.JwtSignerURL+config.AppConfig.JwtSignerEndpoint, notificationData.GatewayID)
-	if err != nil {
-		return errors.Wrapf(err, "problem getting the signed jwt")
-	}
-
-	var payload models.CloudConnectorPayload
-	payload.Method = "POST"
-	payload.URL = config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
-	header := http.Header{}
-	header["Content-Type"] = []string{"application/json"}
-	header["Authorization"] = []string{"Bearer " + signedJwt}
-	payload.Header = header
-	payload.IsAsync = true
-	payload.Payload = event
-	notificationData.Data = payload
 	return nil
 }
 
-func getSignedJwt(jwtSignerURL string, gatewayID string) (string, error) {
-	jwtRequest := models.JwtSignerRequest{
-		Claims: map[string]string{
-			"iss": gatewayID,
-		},
+func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
+	var gtins []string
+	for _, e := range epcs {
+		var advanceShippingNotice models.AdvanceShippingNotice
+		epcBytes, err := json.Marshal(e)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(epcBytes, &advanceShippingNotice)
+		if err != nil {
+			return nil, err
+		}
+		if !config.AppConfig.EpcToWrin {
+			if gtin, err := sgtin96.GetGtin14(advanceShippingNotice.Epc); err == nil {
+				gtins = append(gtins, gtin)
+			} else {
+				// Drop gtin that is undefined
+				log.Warnf("Invalid shipping notice EPC SGTIN 96 format found: %s", advanceShippingNotice.Epc)
+			}
+		} else {
+			wrin14 := convertEpcToWrin14(advanceShippingNotice.Epc)
+			gtins = append(gtins, wrin14)
+		}
 	}
-
-	response, err := postNotification(jwtRequest, jwtSignerURL)
-	if err != nil {
-		return "", errors.Wrapf(err, "unable to make JWT http request")
-	}
-
-	jwtResponse := models.JwtSignerResponse{}
-	if unmarshalErr := json.Unmarshal(response, &jwtResponse); unmarshalErr != nil {
-		return "", errors.Wrapf(err, "failed to Unmarshal responseData")
-	}
-
-	return jwtResponse.Token, nil
+	return gtins, nil
 }
 
-func postNotification(data interface{}, to string) ([]byte, error) {
-	// Metrics
-	metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Attempt", nil).Update(1)
-	startTime := time.Now()
-	defer metrics.GetOrRegisterTimer("RFID-Alert.PostNotification.Latency", nil).UpdateSince(startTime)
-	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Success", nil)
-	mMarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Marshal-Error", nil)
-	mNotifyErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Notify-Error", nil)
+func buildODataQuery(gtins []string) []string {
+	var queries []string
+	for _, gtin := range gtins {
+		queries = append(queries, "(upclist.upc eq '"+gtin+"')")
+	}
+	return queries
+}
 
-	timeout := time.Duration(connectionTimeout) * time.Second
+// Convert EPC value to WRIN
+func convertEpcToWrin14(epc string) string {
+	wrin := epc[13:] //returns 11 digits
+	//Because the sku mapping pads the wrin to a length of 14
+	//when we convert by taking the last 11 of the epc to get the wrin
+	//we must also pad it to 14 so when we do a look up on the wrin in the
+	//sku mapping service, there will be a match
+	return "000" + wrin //pad with 3 leading zeros to conform to same length of gtin14, sku mapping pads the wrin to 14
+}
+
+// MakeGetCallToSkuMapping makes call to the Sku Mapping service to retrieve list of skus/gtins/upcs
+func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error) {
+	// Metrics
+	metrics.GetOrRegisterMeter(`InventoryService.makePostCall.Attempt`, nil).Mark(1)
+	mSuccess := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.Success`, nil)
+	mGetErr := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.makePostCall-Error`, nil)
+	mStatusErr := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.requestStatusCode-Error`, nil)
+	mGetLatency := metrics.GetOrRegisterTimer(`InventoryService.makePostCall.makePostCall-Latency`, nil)
+
+	timeout := time.Duration(15) * time.Second
 	client := &http.Client{
 		Timeout: timeout,
 	}
+	urlEncode := &url.URL{Path: stringBytes}
+	urlString := skuUrl + "?$filter=" + urlEncode.String() + "&$select=upclist.upc"
 
-	mData, err := json.MarshalIndent(data, "", "    ")
+	log.Debugf("Call mapping service endpoint: %s", urlString)
+
+	request, err := http.NewRequest("GET", urlString, nil)
 	if err != nil {
-		mMarshalErr.Update(1)
-		return nil, errors.Errorf("Payload Marshalling failed  %v", err)
-	}
-	log.Debugf("Payload to cloud-connector after marshalling:\n%s", string(mData))
-	request, reqErr := http.NewRequest("POST", to, bytes.NewBuffer(mData))
-	if reqErr != nil {
-		return nil, reqErr
-	}
-	request.Header.Set("content-type", jsonApplication)
-	response, respErr := client.Do(request)
-	if respErr != nil {
-		mNotifyErr.Update(1)
-		return nil, respErr
+		mGetErr.Update(1)
+		log.WithFields(log.Fields{
+			"Method": "MakeGetCallToSkuMapping",
+			"Action": "Make New HTTP GET request",
+			"Error":  err.Error(),
+		}).Error(err)
+		return nil, errors.Wrapf(err, "unable to create a new GET request")
 	}
 
-	if response.StatusCode != http.StatusOK {
-		mNotifyErr.Update(1)
-		return nil, errors.Errorf("PostNotification failed with following response code %d", response.StatusCode)
-
+	getTimer := time.Now()
+	response, err := client.Do(request)
+	if err != nil {
+		mGetErr.Update(1)
+		log.WithFields(log.Fields{
+			"Method": "MakeGetCallToSkuMapping",
+			"Action": "Make HTTP GET request",
+			"Error":  err.Error(),
+		}).Error(err)
+		return nil, errors.Wrapf(err, "unable to get description from mapping service")
 	}
-
-	var jwtResponse []byte
-	if response.Body != nil {
-		jwtResponse, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to ReadALL response.Body")
-		}
-	}
-
 	defer func() {
-		if err := response.Body.Close(); err != nil {
+		if respErr := response.Body.Close(); respErr != nil {
 			log.WithFields(log.Fields{
-				"Method": "postNotification",
-				"Action": "response.Body.Close()",
-			}).Info(err.Error())
+				"Method": "makeGetCall",
+			}).Warning("Failed to close response.")
 		}
 	}()
 
-	log.Debug("Notification posted")
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read the response body")
+	}
+
+	if response.StatusCode != http.StatusOK {
+		mStatusErr.Update(1)
+		log.WithFields(log.Fields{
+			"Method": "MakeGetCallToSkuMapping",
+			"Action": "Response code: " + strconv.Itoa(response.StatusCode),
+			"Error":  fmt.Errorf("Response code: %d", response.StatusCode),
+		}).Error(err)
+		return nil, errors.Wrapf(errors.New("execution error"), "StatusCode %d , Response %s",
+			response.StatusCode, string(responseData))
+	}
+	mGetLatency.UpdateSince(getTimer)
 	mSuccess.Update(1)
-	return jwtResponse, nil
+
+	var result models.SkuMappingResponse
+	if unmarshalErr := json.Unmarshal(responseData, &result); unmarshalErr != nil {
+		return nil, errors.New("failed to Unmarshal responsedata")
+	}
+
+	var gtins []string
+
+	for _, productData := range result.ProdData {
+		for _, gtinList := range productData.GtinList {
+			gtins = append(gtins, gtinList.Gtin)
+		}
+	}
+
+	return gtins, nil
 }
 
 func main() {
@@ -416,7 +506,6 @@ func main() {
 	// Initialize metrics reporting
 	initMetrics()
 
-
 	if config.AppConfig.LoggingLevel == "debug" {
 		log.SetLevel(log.DebugLevel)
 	} else {
@@ -429,11 +518,11 @@ func main() {
 	}).Info("Starting application...")
 
 	// Initialize channel with set value in config
-	notificationChan = make(chan Notification, config.AppConfig.NotificationChanSize)
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 
-	initSensing()
-	go monitorHeartbeat(config.AppConfig.WatchdogSeconds)
-	go notifyChannel()
+	initSensing(notificationChan)
+	go monitorHeartbeat(config.AppConfig.WatchdogSeconds, notificationChan)
+	go alert.NotifyChannel(notificationChan)
 
 	// Start Webserver
 	router := routes.NewRouter()

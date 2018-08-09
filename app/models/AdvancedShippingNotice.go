@@ -20,27 +20,46 @@
 package models
 
 import (
-	"time"
+	"github.com/pkg/errors"
 )
 
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
+// AdvanceShippingNotice is the model containing advance shipping item epcs
+// swagger:model Tag
+type AdvanceShippingNotice struct {
+	// SGTIN EPC code
+	Epc string `json:"epc"`
 }
 
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
+// SkuMappingResponse is the model of the response from the mapping sku service
+// with the selection of only the gtins/upcs
+type SkuMappingResponse struct {
+	ProdData []ProdData `json:"results"`
+}
+
+// ProdData represents the product data schema in the database
+type ProdData struct {
+	GtinList []GtinMetadata `json:"upcList"`
+}
+
+// GtinMetadata represents the GtinList schema attribute in the database
+type GtinMetadata struct {
+	Gtin string `json:"upc"` //upc for now because the skumapping service uses upc and not gtin
+}
+
+// Gtin represents the Gtin object
+type Gtin struct {
+	Gtin string `json:"gtin"`
+}
+
+// ConvertToASNList convert array string to array of Gtin objects
+func ConvertToASNList(asns []string) ([]Gtin, error){
+	if len(asns) == 0 {
+			return nil, errors.Errorf("List can't be empty")
+
+	}
+	asnList := make([]Gtin,len(asns))
+	for i := 0; i < len(asns); i++ {
+		asnList[i].Gtin = asns[i]
+	}
+	return asnList, nil
 }

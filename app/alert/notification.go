@@ -17,30 +17,38 @@
  * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
  */
 
-package models
+package alert
 
 import (
-	"time"
+	"net/http"
+
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )
 
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
+// Notification struct
+type Notification struct {
+	NotificationType    string
+	NotificationMessage string
+	Data                interface{}
+	GatewayID           string
+	Endpoint            string
 }
 
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
+// GeneratePayload is to generate cloud connector payload for the alert notification
+func (notificationData *Notification) GeneratePayload() error {
+
+	event := notificationData.Data.(models.Alert)
+
+	var payload models.CloudConnectorPayload
+	payload.Method = "POST"
+	//payload.URL = config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
+	payload.URL = config.AppConfig.Destination
+	header := http.Header{}
+	header["Content-Type"] = []string{"application/json"}
+	payload.Header = header
+	payload.IsAsync = true
+	payload.Payload = event
+	notificationData.Data = payload
+	return nil
 }

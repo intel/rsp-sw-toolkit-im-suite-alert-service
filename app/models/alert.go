@@ -41,10 +41,11 @@ type AlertMessage struct {
 	MACAddress  string    `json:"macaddress"`
 	Application string    `json:"application"`
 	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime, string"`
+	Datetime    time.Time `json:"dateTime,string"`
 	Value       Alert     `json:"value"`
 }
 
+// UndefinedFacility is the place holder value for unused facility
 const UndefinedFacility = "UNDEFINED_FACILITY"
 
 // GatewayRegisteredAlert generated when a new gateway is seen in a heartbeat
@@ -114,7 +115,7 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	return heartbeatMissed, heartbeat.DeviceID
 }
 
-func defineFacilities(heartbeat Heartbeat, alert Alert) ([]string) {
+func defineFacilities(heartbeat Heartbeat, alert Alert) []string {
 	if len(heartbeat.Facilities) > 0 {
 		alert.Facilities = heartbeat.Facilities
 	} else {

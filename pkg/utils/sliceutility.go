@@ -17,30 +17,45 @@
  * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
  */
 
-package models
+package utils
 
-import (
-	"time"
-)
 
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
+
+func Index(vs []string, t string) int {
+	for i, v := range vs {
+		if v == t {
+			return i
+		}
+	}
+	return -1
 }
 
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
+// Include returns true if the target string t is in the slice.
+func Include(vs []string, t string) bool {
+	return Index(vs, t) >= 0
+}
+
+// Filter returns a list of strings with the paramater array filtered out
+func Filter(vs []string, f func(string) bool) []string {
+	vsf := make([]string, 0)
+	for _, v := range vs {
+		if f(v) {
+			vsf = append(vsf, v)
+		}
+	}
+	return vsf
+}
+
+// RemoveDuplicates removes duplicates. Result is unordered
+func RemoveDuplicates(vs []string) []string{
+	dup := map[string]bool{}
+	for e:= range vs {
+		dup[vs[e]] = true
+	}
+
+	var noDups []string
+	for key := range dup {
+		noDups = append(noDups, key)
+	}
+	return noDups
 }

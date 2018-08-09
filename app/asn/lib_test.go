@@ -17,30 +17,43 @@
  * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
  */
 
-package models
+package asn
 
 import (
-	"time"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"encoding/json"
+	"testing"
+	"reflect"
 )
 
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
-}
+func TestGenerateNotWhitelistedAlert(t *testing.T){
+	var notWhitelisted = []string{
+		"30143639F84191AD22900204",
+	}
 
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
+	asnList, err := models.ConvertToASNList(notWhitelisted)
+	if err != nil {
+		t.Errorf("error generating alert")
+	}
+	alert, err := GenerateNotWhitelistedAlert(asnList)
+	if err != nil {
+		t.Errorf("error generating alert")
+	}
+
+	var alertMessage models.AlertMessage
+
+	err = json.Unmarshal(alert, &alertMessage)
+	if err != nil {
+		t.Errorf("Alert did not unmarshall correctly")
+	}
+	var a []models.AdvanceShippingNotice
+	alertMessageBytes, err := json.Marshal(alertMessage.Value.Optional)
+	if err != nil {
+		t.Errorf("Marshaling AlertMessage to []bytes")
+	}
+	json.Unmarshal(alertMessageBytes, &a)
+
+	if alertMessage.Value.Severity != "critical" && !reflect.DeepEqual(a, asnList){
+		t.Errorf("Error creating critical not whitelisted alert")
+	}
 }

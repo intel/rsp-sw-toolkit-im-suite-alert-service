@@ -17,30 +17,47 @@
  * notice embedded in Materials by Intel or Intel's suppliers or licensors in any way.
  */
 
-package models
+package schemas
 
-import (
-	"time"
-)
-
-// Heartbeat is the model containing the heartbeat from the gateway
-type Heartbeat struct {
-	DeviceID             string   `json:"device_id"`
-	Facilities           []string `json:"facilities"`
-	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
-	MeshID               string   `json:"mesh_id"`
-	MeshNodeID           string   `json:"mesh_node_id"`
-	PersonalityGroupsCfg string   `json:"personality_groups_cfg"`
-	ScheduleCfg          string   `json:"schedule_cfg"`
-	ScheduleGroupsCfg    string   `json:"schedule_groups_cfg"`
-	SentOn               int      `json:"sent_on"`
-}
-
-// HeartbeatMessage is the data from Context sensing SDK
-type HeartbeatMessage struct {
-	MACAddress  string    `json:"macaddress"`
-	Application string    `json:"application"`
-	ProviderID  int       `json:"providerId"`
-	Datetime    time.Time `json:"dateTime,string"`
-	Value       Heartbeat `json:"value"`
-}
+// AlertMessageSchema is the json schema for alert message
+const AlertMessageSchema = `{ 
+	"definitions": {
+		"Alert": {
+		  "required": [
+			"sent_on",
+			"alert_description",
+			"severity"
+		  ],
+		  "properties": {
+			"alert_description": {
+			  "type": "string"
+			},
+			"optional": {
+			  "type": "string"
+			},
+			"sent_on": {
+			  "type": "integer"
+			},
+			"severity": {
+			  "type": "string"
+			}
+		  },
+		  "additionalProperties": false,
+		  "type": "object"
+		}
+	  },
+	  "required": [
+		"application",
+		"value"
+	  ],
+	  "properties": {
+		"application": {
+		  "type": "string"
+		},
+		"value": {
+		  "$ref": "#/definitions/Alert"
+		}
+	  },
+	  "additionalProperties": false,
+	  "type": "object"
+ }`

@@ -15,9 +15,7 @@
 // <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that can be missed before the gateway gets deregistered.</blockquote>
 // <blockquote>•<b> cloudConnectorURL</b> - URL for Cloud-connector service.</blockquote>
 // <blockquote>•<b> cloudConnectorEndpoint</b> - Endpoint for Cloud-connector service.</blockquote>
-// <blockquote>•<b> awsURLHost</b> - Host of AWS URL.</blockquote>
-// <blockquote>•<b> awsURLStage</b> - Stage of AWS URL.</blockquote>
-// <blockquote>•<b> alertEndpoint</b> - Endpoint to send processed alert.</blockquote>
+// <blockquote>•<b> Destination</b> - Endpoint URL for Cloud-connector to send notificaiton to.</blockquote>
 // <blockquote>•<b> jwtSignerURL</b> - URL for Jwt-signing service.</blockquote>
 // <blockquote>•<b> jwtSignerEndpoint</b> - Endpoint for Jwt-signing service.</blockquote>
 // <blockquote>•<b> secureMode</b> - Boolean flag indicating if using secure connection to the Context Brokers.</blockquote>
@@ -42,9 +40,7 @@
 // &#9&#9"maxMissedHeartbeats": 3,
 // &#9&#9"cloudConnectorURL": "http://127.0.0.1:8081",
 // &#9&#9"cloudConnectorEndpoint": "/aws/invoke",
-// &#9&#9"awsURLHost": "7r98jdfds.execute-api.us-west-2.amazonaws.com",
-// &#9&#9"awsURLStage": "/dev",
-// &#9&#9"alertEndpoint": "/alert",
+// &#9&#9"Destination": "https://test.com/call",
 // &#9&#9"jwtSigningURL": "http://127.0.0.1:8080",
 // &#9&#9"jwtSigningEndpoint": "/jwt-signing/sign",
 // &#9&#9"secureMode": false,
@@ -88,3 +84,15 @@
 //
 // swagger:meta
 package main
+
+// statusOk
+//
+// swagger:response statusOk
+type statusOk struct {
+}
+
+// serviceUnavailable
+//
+// swagger:response serviceUnavailable
+type serviceUnavailable struct {
+}

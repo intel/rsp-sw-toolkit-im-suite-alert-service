@@ -36,6 +36,7 @@ data/
 #Debug
 debug
 debug.test
+test-alertmessage.json
 
 *.exe
 *.test
