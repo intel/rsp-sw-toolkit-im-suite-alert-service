@@ -29,18 +29,27 @@ const AlertMessageSchema = `{
 			"severity"
 		  ],
 		  "properties": {
-			"alert_description": {
-			  "type": "string"
-			},
-			"optional": {
-			  "type": "string"
-			},
-			"sent_on": {
-			  "type": "integer"
-			},
-			"severity": {
-			  "type": "string"
-			}
+			  "alert_description": {
+			    "type": "string"
+			  },
+			  "optional": {
+			    "type": "string"
+			  },
+			  "sent_on": {
+			    "type": "integer"
+			  },
+			  "alert_number": {
+				  "type": "integer"
+			  },
+			  "severity": {
+			    "type": "string"
+			  },
+			  "facilities": {
+			    "type": "array"
+			  },
+			  "device_id": {
+			    "type": "string"
+			  }
 		  },
 		  "additionalProperties": false,
 		  "type": "object"
@@ -51,12 +60,21 @@ const AlertMessageSchema = `{
 		"value"
 	  ],
 	  "properties": {
-		"application": {
-		  "type": "string"
-		},
-		"value": {
-		  "$ref": "#/definitions/Alert"
-		}
+		  "application": {
+		    "type": "string"
+		  },
+		  "macaddress": {
+		    "type": "string"
+		  },
+		  "providerId": {
+		    "type": "integer"
+		  },
+		  "dateTime": {
+		    "type": "string"
+		  },
+		  "value": {
+		    "$ref": "#/definitions/Alert"
+		  }
 	  },
 	  "additionalProperties": false,
 	  "type": "object"
