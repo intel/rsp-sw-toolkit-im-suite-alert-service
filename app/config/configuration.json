@@ -8,8 +8,6 @@
   "notificationChanSize": 100,
   "cloudConnectorURL": "http://127.0.0.1:8081",
   "cloudConnectorEndpoint":"/callwebhook",
-  "jwtSignerURL" : "http://127.0.0.1:8080",
-  "jwtSignerEndpoint" : "/jwt-signing/sign",
   "secureMode" : true,
   "skipCertVerify" : true,
   "telemetryEndpoint": "",

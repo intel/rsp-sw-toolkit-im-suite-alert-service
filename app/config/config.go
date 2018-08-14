@@ -29,7 +29,6 @@ type (
 		ServiceName, LoggingLevel, ContextSensing, Port string
 		NotificationChanSize                            int
 		CloudConnectorURL, CloudConnectorEndpoint       string
-		JwtSignerEndpoint, JwtSignerURL                 string
 		TelemetryDataStoreName, TelemetryEndpoint       string
 		WatchdogSeconds                                 int
 		MaxMissedHeartbeats                             int
@@ -86,26 +85,6 @@ func InitConfig() error {
 	}
 
 	AppConfig.CloudConnectorEndpoint, err = config.GetString("cloudConnectorEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.JwtSignerEndpoint, err = config.GetString("jwtSignerEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.JwtSignerURL, err = config.GetString("jwtSignerURL")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.JwtSignerEndpoint, err = config.GetString("jwtSignerEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.JwtSignerURL, err = config.GetString("jwtSignerURL")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

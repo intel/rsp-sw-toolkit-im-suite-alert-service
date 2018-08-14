@@ -73,7 +73,6 @@ func TestGeneratePayloadAlert(t *testing.T) {
 		t.Errorf("Server returned a error %v", serverErr)
 	}
 	defer testMockServer.Close()
-	config.AppConfig.JwtSignerURL = testMockServer.URL
 
 	generateErr := testNotification.GeneratePayload()
 	if generateErr != nil {
@@ -108,14 +107,6 @@ func TestPostNotification(t *testing.T) {
 	_, postErr := PostNotification(inputData, mockCloudConnector)
 	if postErr != nil {
 		t.Errorf("Posting notification failed %s", postErr)
-	}
-	mockCloudConnector = testMockServer.URL + "/jwt-signing/sign"
-	jwtResponse, postErr := PostNotification(inputData, mockCloudConnector)
-	if postErr != nil {
-		t.Errorf("Posting notification failed %s", postErr)
-	}
-	if jwtResponse == nil {
-		t.Errorf("JWTResponse is nil %s", postErr)
 	}
 	mockCloudConnector = "http://wrongURL:8080" + "/aws-test/invoke"
 	_, postErr = PostNotification(inputData, mockCloudConnector)
@@ -197,19 +188,11 @@ func getTestMockServer() (*httptest.Server, error) {
 		if request.Method != http.MethodPost {
 			serverErr = errors.Errorf("Expected 'POST' request, received '%s'", request.Method)
 		}
-		switch request.URL.EscapedPath() {
-		case "/jwt-signing/sign":
-			data := "xxxxx.yyyyy.zzzzz"
-			jsonData, _ := json.Marshal(data)
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write(jsonData)
+		data := "success"
+		jsonData, _ := json.Marshal(data)
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
 
-		case "/	aws/invoke":
-			data := "success"
-			jsonData, _ := json.Marshal(data)
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write(jsonData)
-		}
 	}))
 	return testServer, serverErr
 }
