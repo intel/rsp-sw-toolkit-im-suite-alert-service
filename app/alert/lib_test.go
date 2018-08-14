@@ -57,7 +57,7 @@ func Test_processAlert(t *testing.T) {
 func TestGeneratePayloadAlert(t *testing.T) {
 	testNotification := new(Notification)
 	inputData := mockGenerateAlert()
-	alertPayloadURL := config.AppConfig.Destination
+	alertPayloadURL := config.AppConfig.AlertDestination
 	var alert models.Alert
 	err := json.Unmarshal(inputData, &alert)
 	if err != nil {

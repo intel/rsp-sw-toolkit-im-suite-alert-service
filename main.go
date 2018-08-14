@@ -259,7 +259,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 }
 
 func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
-	log.Debugf("Received data:\n%s", string(*jsonBytes))
+	log.Debugf("Received advanced shipping notice data:\n%s", string(*jsonBytes))
 
 	var data map[string]interface{}
 
@@ -322,6 +322,8 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 		return !utils.Include(whitelistedGtins, v)
 	})
 
+	notWhitelisted = utils.RemoveDuplicates(notWhitelisted)
+
 	asnList, err := models.ConvertToASNList(notWhitelisted)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -361,6 +363,7 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 
 func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
 	var gtins []string
+	log.Debugf("Attempting to convert %d.", len(epcs))
 	for _, e := range epcs {
 		var advanceShippingNotice models.AdvanceShippingNotice
 		epcBytes, err := json.Marshal(e)
@@ -369,9 +372,11 @@ func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
 		}
 		err = json.Unmarshal(epcBytes, &advanceShippingNotice)
 		if err != nil {
+			log.Errorf("Problem unmarshalling the data.")
 			return nil, err
 		}
 		if !config.AppConfig.EpcToWrin {
+			log.Debugf("Converting this data to GTIN: %s", string(advanceShippingNotice.Epc))
 			if gtin, err := sgtin96.GetGtin14(advanceShippingNotice.Epc); err == nil {
 				gtins = append(gtins, gtin)
 			} else {
@@ -383,6 +388,7 @@ func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
 			gtins = append(gtins, wrin14)
 		}
 	}
+	log.Debugf("Converted %d epcs.", len(gtins))
 	return gtins, nil
 }
 

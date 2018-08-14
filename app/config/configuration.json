@@ -16,8 +16,8 @@
   "telemetryDataStoreName": "",
   "mappingSkuURL" : "http://127.0.0.1:8081",
   "mappingSkuEndpoint" :"/skus",
-  "epcToWrin" : true,
-  "destination" : "http://test.com",
+  "epcToWrin" : false,
+  "alertDestination" : "http://test.com",
   "batchSizeMax" : 50,
   "sendNotWhitelistedAlert" : false
 }

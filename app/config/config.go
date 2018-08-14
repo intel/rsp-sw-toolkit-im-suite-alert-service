@@ -36,7 +36,7 @@ type (
 		SecureMode, SkipCertVerify                      bool
 		MappingSkuURL, MappingSkuEndpoint               string
 		EpcToWrin                                       bool
-		Destination                                     string
+		AlertDestination                                string
 		BatchSizeMax                                    int
 		SendNotWhitelistedAlert                         bool
 	}
@@ -165,7 +165,7 @@ func InitConfig() error {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
-	AppConfig.Destination, err = config.GetString("destination")
+	AppConfig.AlertDestination, err = config.GetString("alertDestination")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

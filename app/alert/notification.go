@@ -43,7 +43,7 @@ func (notificationData *Notification) GeneratePayload() error {
 	var payload models.CloudConnectorPayload
 	payload.Method = "POST"
 	//payload.URL = config.AppConfig.AwsURLHost + config.AppConfig.AwsURLStage + endPoint
-	payload.URL = config.AppConfig.Destination
+	payload.URL = config.AppConfig.AlertDestination
 	header := http.Header{}
 	header["Content-Type"] = []string{"application/json"}
 	payload.Header = header

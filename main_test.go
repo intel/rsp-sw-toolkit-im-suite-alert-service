@@ -151,6 +151,7 @@ func TestProcessShippingNoticeWRINs(t *testing.T) {
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 
+	config.AppConfig.EpcToWrin = true
 	inputData := mockGenerateShippingNoticeWRINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
