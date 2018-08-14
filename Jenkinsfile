@@ -6,4 +6,8 @@ rrpBuildGoCode {
     infra = [
         stackName: 'RRP-CodePipeline-RFID-Alert-Service'
     ]
+
+    notify = [
+        slack: [ success: '#ima-build-success', failure: '#ima-build-failed' ]
+    ]
 }
