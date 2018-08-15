@@ -16,8 +16,6 @@
 // <blockquote>•<b> cloudConnectorURL</b> - URL for Cloud-connector service.</blockquote>
 // <blockquote>•<b> cloudConnectorEndpoint</b> - Endpoint for Cloud-connector service.</blockquote>
 // <blockquote>•<b> Destination</b> - Endpoint URL for Cloud-connector to send notificaiton to.</blockquote>
-// <blockquote>•<b> jwtSignerURL</b> - URL for Jwt-signing service.</blockquote>
-// <blockquote>•<b> jwtSignerEndpoint</b> - Endpoint for Jwt-signing service.</blockquote>
 // <blockquote>•<b> secureMode</b> - Boolean flag indicating if using secure connection to the Context Brokers.</blockquote>
 // <blockquote>•<b> skipCertVerify</b> - Boolean flag indicating if secure connection to the Context Brokers should skip certificate validation.</blockquote>
 // <blockquote>•<b> telemetryEndpoint</b> - URL of the telemetry service receiving the metrics from the service.</blockquote>
@@ -41,8 +39,6 @@
 // &#9&#9"cloudConnectorURL": "http://127.0.0.1:8081",
 // &#9&#9"cloudConnectorEndpoint": "/aws/invoke",
 // &#9&#9"Destination": "https://test.com/call",
-// &#9&#9"jwtSigningURL": "http://127.0.0.1:8080",
-// &#9&#9"jwtSigningEndpoint": "/jwt-signing/sign",
 // &#9&#9"secureMode": false,
 // &#9&#9"skipCertVerify": false,
 // &#9&#9"telemetryEndpoint": "http://166.130.9.122:8000",
@@ -64,7 +60,6 @@
 //
 // __Known services this service depends on:__
 // ○ Context Sensing
-// ○ Jwt-signing
 // ○ Cloud-connector
 //
 // __Known services that depend upon this service:__

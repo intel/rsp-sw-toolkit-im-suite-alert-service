@@ -8,16 +8,14 @@
   "notificationChanSize": 100,
   "cloudConnectorURL": "http://127.0.0.1:8081",
   "cloudConnectorEndpoint":"/callwebhook",
-  "jwtSignerURL" : "http://127.0.0.1:8080",
-  "jwtSignerEndpoint" : "/jwt-signing/sign",
   "secureMode" : true,
   "skipCertVerify" : true,
   "telemetryEndpoint": "",
   "telemetryDataStoreName": "",
   "mappingSkuURL" : "http://127.0.0.1:8081",
   "mappingSkuEndpoint" :"/skus",
-  "epcToWrin" : true,
-  "destination" : "http://test.com",
+  "epcToWrin" : false,
+  "alertDestination" : "http://test.com",
   "batchSizeMax" : 50,
   "sendNotWhitelistedAlert" : false
 }
