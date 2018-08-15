@@ -41,7 +41,7 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	metrics "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
 	reporter "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics-influxdb"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/asn"
@@ -252,6 +252,16 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 	}
 
 	updateGatewayStatus(heartbeatEvent.Value, notificationChan)
+
+	// Forward the heartbeat to the notification channel
+	go func() {
+		notificationChan <- alert.Notification{
+			NotificationMessage: "Process Heartbeat",
+			NotificationType:    models.HeartbeatType,
+			Data:                heartbeatEvent.Value,
+			GatewayID:           heartbeatEvent.Value.DeviceID,
+		}
+	}()
 
 	log.Info("Processed heartbeat")
 	mSuccess.Update(1)

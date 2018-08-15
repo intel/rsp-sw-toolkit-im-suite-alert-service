@@ -28,7 +28,7 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	metrics "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 )

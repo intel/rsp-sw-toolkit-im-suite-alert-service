@@ -92,22 +92,20 @@ func InitConfig() error {
 
 	AppConfig.JwtSignerEndpoint, err = config.GetString("jwtSignerEndpoint")
 	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+		//return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+
+		// Optional variable
+		AppConfig.JwtSignerEndpoint = ""
+		err = nil
 	}
 
 	AppConfig.JwtSignerURL, err = config.GetString("jwtSignerURL")
 	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
+		//return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 
-	AppConfig.JwtSignerEndpoint, err = config.GetString("jwtSignerEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.JwtSignerURL, err = config.GetString("jwtSignerURL")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+		// Optional variable
+		AppConfig.JwtSignerURL = ""
+		err = nil
 	}
 
 	AppConfig.MaxMissedHeartbeats, err = config.GetInt("maxMissedHeartbeats")

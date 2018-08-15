@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+const (
+	// HeartbeatType is the notification type for a heartbeat
+	HeartbeatType = "Heartbeat"
+)
+
 // Heartbeat is the model containing the heartbeat from the gateway
 type Heartbeat struct {
 	DeviceID             string   `json:"device_id"`
