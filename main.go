@@ -188,6 +188,7 @@ func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notificat
 								NotificationMessage: "Gateway Deregistered Alert",
 								Data:                gatewayDeregistered,
 								GatewayID:           gatewayID,
+								Endpoint:            config.AppConfig.AlertDestination,
 							}
 						}()
 					}
@@ -201,6 +202,7 @@ func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notificat
 							NotificationMessage: "Missed HeartBeat Alert",
 							Data:                missedHeartbeat,
 							GatewayID:           gatewayID,
+							Endpoint:            config.AppConfig.AlertDestination,
 						}
 					}()
 				}
@@ -224,6 +226,7 @@ func updateGatewayStatus(hb models.Heartbeat, notificationChan chan alert.Notifi
 						NotificationMessage: "Gateway Registered Alert",
 						Data:                gatewayRegistered,
 						GatewayID:           gatewayID,
+						Endpoint:            config.AppConfig.AlertDestination,
 					}
 				}()
 			}
@@ -260,6 +263,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 			NotificationType:    models.HeartbeatType,
 			Data:                heartbeatEvent.Value,
 			GatewayID:           heartbeatEvent.Value.DeviceID,
+			Endpoint:            config.AppConfig.HeartbeatDestination,
 		}
 	}()
 

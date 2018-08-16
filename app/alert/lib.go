@@ -87,6 +87,7 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 			NotificationType:    AlertType,
 			Data:                alertEvent.Value,
 			GatewayID:           gatewayID,
+			Endpoint:            config.AppConfig.AlertDestination,
 		}
 	}()
 

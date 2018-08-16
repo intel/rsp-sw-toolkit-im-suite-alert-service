@@ -61,13 +61,14 @@ func TestGeneratePayloadAlert(t *testing.T) {
 	var alert models.Alert
 	err := json.Unmarshal(inputData, &alert)
 	if err != nil {
-		t.Errorf("error parsing Heartbeat: %s", err)
+		t.Errorf("error parsing Alert: %s", err)
 	}
 
 	testNotification.NotificationType = "Alert"
 	testNotification.NotificationMessage = "ProcessAlert"
 	testNotification.Data = alert
 	testNotification.GatewayID = "rrs-gateway"
+	testNotification.Endpoint = alertPayloadURL
 	testMockServer, serverErr := getTestMockServer()
 	if serverErr != nil {
 		t.Errorf("Server returned a error %v", serverErr)
@@ -90,6 +91,49 @@ func TestGeneratePayloadAlert(t *testing.T) {
 		t.Error("Body of payload is not of alert type")
 	}
 	validData := reflect.DeepEqual(alertData, alert)
+	if !validData {
+		t.Error("Alert data and generated payload data is not equal")
+	}
+
+}
+
+func TestGeneratePayloadHeartbeat(t *testing.T) {
+	testNotification := new(Notification)
+	inputData := mockGenerateHeartbeat()
+	hbPayloadURL := config.AppConfig.HeartbeatDestination
+	var hb models.Heartbeat
+	err := json.Unmarshal(inputData, &hb)
+	if err != nil {
+		t.Errorf("error parsing Heartbeat: %s", err)
+	}
+
+	testNotification.NotificationType = models.HeartbeatType
+	testNotification.NotificationMessage = "ProcessHeartbeat"
+	testNotification.Data = hb
+	testNotification.GatewayID = "rrs-gateway"
+	testNotification.Endpoint = hbPayloadURL
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+
+	generateErr := testNotification.GeneratePayload()
+	if generateErr != nil {
+		t.Errorf("Error in generating payload %v", generateErr)
+	}
+	notifyData, ok := testNotification.Data.(models.CloudConnectorPayload)
+	if !ok {
+		t.Error("Found incompatible payload type in notification data")
+	}
+	if notifyData.URL != hbPayloadURL {
+		t.Error("Generated Payload has wrong URL for sending heartbeats")
+	}
+	heartbeatData, ok := notifyData.Payload.(models.Heartbeat)
+	if !ok {
+		t.Error("Body of payload is not of heartbeat type")
+	}
+	validData := reflect.DeepEqual(heartbeatData, hb)
 	if !validData {
 		t.Error("Heartbeat data and generated payload data is not equal")
 	}

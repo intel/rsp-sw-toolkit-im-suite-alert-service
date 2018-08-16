@@ -10,15 +10,18 @@ printHelp() {
     echo "Options:"
     echo "  -h, --help      Show this help dialog"
     echo "  -db, --dockerb  Does a docker build and creates image with tag rfid-alert-service:latest"
-    exit 0
 }
 
 buildDocker=false
 # parameters
 for var in "$@"; do
     case "${var}" in
-        "-h" | "--help"      ) printHelp;;
+        "-h" | "--help"      ) printHelp; exit 0;;
         "-db" | "--dockerb"     ) buildDocker=true;;
+
+        *)  printHelp
+            printf "\nERROR -- Invalid argument: ${var}\n"
+            exit 1;;
     esac
 done
 
