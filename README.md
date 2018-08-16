@@ -54,4 +54,9 @@ The code pipeline will build the service and create the docker image and push it
 
 ```280211473891.dkr.ecr.us-west-2.amazonaws.com/RFID-Alert-service```
 
+## Inventory Management App Alerts
+401 - When advance shipping notice is ingested, list of GTINs on the ASN that are NOT Whitelisted
+
+402 - EPC tag is read but it was NOT on the advance shipping notice.
+
 Copyright 2018 Intel(R) Corporation, All rights reserved.
