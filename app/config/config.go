@@ -36,6 +36,7 @@ type (
 		MappingSkuURL, MappingSkuEndpoint               string
 		EpcToWrin                                       bool
 		AlertDestination                                string
+		HeartbeatDestination                            string
 		BatchSizeMax                                    int
 		SendNotWhitelistedAlert                         bool
 	}
@@ -145,6 +146,11 @@ func InitConfig() error {
 	}
 
 	AppConfig.AlertDestination, err = config.GetString("alertDestination")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.HeartbeatDestination, err = config.GetString("heartbeatDestination")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

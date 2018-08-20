@@ -15,7 +15,8 @@
   "mappingSkuURL" : "http://127.0.0.1:8081",
   "mappingSkuEndpoint" :"/skus",
   "epcToWrin" : false,
-  "alertDestination" : "http://test.com",
+  "alertDestination" : "http://172.17.0.1:7777/webhook",
+  "heartbeatDestination" : "http://172.17.0.1:7777/webhook",
   "batchSizeMax" : 50,
   "sendNotWhitelistedAlert" : false
 }

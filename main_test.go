@@ -52,7 +52,7 @@ func TestProcessHeartbeat(t *testing.T) {
 	if heartBeatError != nil {
 		t.Errorf("Error processing heartbeat %s", heartBeatError)
 	}
-
+	go alert.NotifyChannel(notificationChan)
 }
 
 func TestGatewayStatus(t *testing.T) {

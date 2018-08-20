@@ -41,7 +41,7 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	metrics "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
 	reporter "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics-influxdb"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/asn"
@@ -188,6 +188,7 @@ func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notificat
 								NotificationMessage: "Gateway Deregistered Alert",
 								Data:                gatewayDeregistered,
 								GatewayID:           gatewayID,
+								Endpoint:            config.AppConfig.AlertDestination,
 							}
 						}()
 					}
@@ -201,6 +202,7 @@ func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notificat
 							NotificationMessage: "Missed HeartBeat Alert",
 							Data:                missedHeartbeat,
 							GatewayID:           gatewayID,
+							Endpoint:            config.AppConfig.AlertDestination,
 						}
 					}()
 				}
@@ -224,6 +226,7 @@ func updateGatewayStatus(hb models.Heartbeat, notificationChan chan alert.Notifi
 						NotificationMessage: "Gateway Registered Alert",
 						Data:                gatewayRegistered,
 						GatewayID:           gatewayID,
+						Endpoint:            config.AppConfig.AlertDestination,
 					}
 				}()
 			}
@@ -252,6 +255,17 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 	}
 
 	updateGatewayStatus(heartbeatEvent.Value, notificationChan)
+
+	// Forward the heartbeat to the notification channel
+	go func() {
+		notificationChan <- alert.Notification{
+			NotificationMessage: "Process Heartbeat",
+			NotificationType:    models.HeartbeatType,
+			Data:                heartbeatEvent.Value,
+			GatewayID:           heartbeatEvent.Value.DeviceID,
+			Endpoint:            config.AppConfig.HeartbeatDestination,
+		}
+	}()
 
 	log.Info("Processed heartbeat")
 	mSuccess.Update(1)
@@ -376,7 +390,7 @@ func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
 			return nil, err
 		}
 		if !config.AppConfig.EpcToWrin {
-			log.Debugf("Converting this data to GTIN: %s", string(advanceShippingNotice.Epc))
+			log.Debugf("Converting this data to GTIN: %s", advanceShippingNotice.Epc)
 			if gtin, err := sgtin96.GetGtin14(advanceShippingNotice.Epc); err == nil {
 				gtins = append(gtins, gtin)
 			} else {
