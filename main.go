@@ -390,7 +390,7 @@ func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
 			return nil, err
 		}
 		if !config.AppConfig.EpcToWrin {
-			log.Debugf("Converting this data to GTIN: %s", string(advanceShippingNotice.Epc))
+			log.Debugf("Converting this data to GTIN: %s", advanceShippingNotice.Epc)
 			if gtin, err := sgtin96.GetGtin14(advanceShippingNotice.Epc); err == nil {
 				gtins = append(gtins, gtin)
 			} else {

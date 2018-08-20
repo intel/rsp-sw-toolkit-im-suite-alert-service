@@ -39,6 +39,8 @@ func (notification *Notification) GeneratePayload() error {
 	var payload models.CloudConnectorPayload
 	payload.Method = "POST"
 	payload.URL = notification.Endpoint
+	// Clear the Endpoint property as it was not used in previous versions of the code and it is
+	// contained inside of payload.URL
 	notification.Endpoint = ""
 	header := http.Header{}
 	header["Content-Type"] = []string{"application/json"}
