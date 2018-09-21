@@ -194,7 +194,7 @@ func mockGenerateAlert() []byte {
 			"alert_number": 22,
 			"alert_description": "sensor disconnected",
 			"severity": "info", 
-			"optional": { "mesh_id": "rrs-gateway" }
+			"optional": {}
 		}
 	}`)
 	return alert

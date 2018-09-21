@@ -28,8 +28,9 @@ const (
 	HeartbeatType = "Heartbeat"
 )
 
-// Heartbeat is the model containing the heartbeat from the gateway
+// Heartbeat from gateway
 type Heartbeat struct {
+	// DeviceID is gateway id
 	DeviceID             string   `json:"device_id"`
 	Facilities           []string `json:"facilities"`
 	FacilityGroupsCfg    string   `json:"facility_groups_cfg"`
@@ -41,7 +42,7 @@ type Heartbeat struct {
 	SentOn               int      `json:"sent_on"`
 }
 
-// HeartbeatMessage is the data from Context sensing SDK
+// Heartbeat message from SAF
 type HeartbeatMessage struct {
 	MACAddress  string    `json:"macaddress"`
 	Application string    `json:"application"`

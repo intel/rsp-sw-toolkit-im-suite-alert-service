@@ -25,18 +25,19 @@ import (
 	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
 )
 
-// Alert value for cloud which does not include gateway_id
 type Alert struct {
 	SentOn           int64       `json:"sent_on"`
 	Facilities       []string    `json:"facilities"`
+	// DeviceID is sensor id
 	DeviceID         string      `json:"device_id"`
 	AlertNumber      int         `json:"alert_number"`
 	AlertDescription string      `json:"alert_description"`
 	Severity         string      `json:"severity"`
+	GatewayId        string	     `json:"gateway_id"`
 	Optional         interface{} `json:"optional"`
 }
 
-// AlertMessage is the data from Context sensing SDK
+// Alert message from SAF
 type AlertMessage struct {
 	MACAddress  string    `json:"macaddress"`
 	Application string    `json:"application"`
@@ -51,21 +52,16 @@ const UndefinedFacility = "UNDEFINED_FACILITY"
 // GatewayRegisteredAlert generated when a new gateway is seen in a heartbeat
 func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	var register Alert
-	optionalMap := make(map[string]interface{})
 
 	register.AlertNumber = 320
 	register.AlertDescription = "Gateway " + heartbeat.DeviceID + " registered"
 	register.Severity = "info"
 	register.SentOn = helper.UnixMilliNow()
 	register.Facilities = defineFacilities(heartbeat, register)
+	register.GatewayId = heartbeat.DeviceID
+	// DeviceId is same as GatewayId as there is no sensor id
+	// available in a heartbeat
 	register.DeviceID = heartbeat.DeviceID
-	if heartbeat.MeshID != "" {
-		optionalMap["mesh_id"] = heartbeat.MeshID
-	}
-	if heartbeat.MeshNodeID != "" {
-		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
-	}
-	register.Optional = optionalMap
 
 	return register, heartbeat.DeviceID
 }
@@ -73,7 +69,6 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 // GatewayDeregisteredAlert generated when maximum number of gateway heartbeats are missed
 func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	var deregister Alert
-	optionalMap := make(map[string]interface{})
 
 	deregister.AlertNumber = 322
 	deregister.AlertDescription = "Gateway " + heartbeat.DeviceID + " deregistered"
@@ -81,14 +76,10 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 
 	deregister.SentOn = helper.UnixMilliNow()
 	deregister.Facilities = defineFacilities(heartbeat, deregister)
+	deregister.GatewayId = heartbeat.DeviceID
+	// DeviceId is same as GatewayDeviceId as there is no sensor id
+	// available in a heartbeat
 	deregister.DeviceID = heartbeat.DeviceID
-	if heartbeat.MeshID != "" {
-		optionalMap["mesh_id"] = heartbeat.MeshID
-	}
-	if heartbeat.MeshNodeID != "" {
-		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
-	}
-	deregister.Optional = optionalMap
 
 	return deregister, heartbeat.DeviceID
 }
@@ -96,21 +87,16 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 // GatewayMissedHeartbeatAlert generated when a gateway heartbeat is missed
 func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	var heartbeatMissed Alert
-	optionalMap := make(map[string]interface{})
 
 	heartbeatMissed.AlertNumber = 321
 	heartbeatMissed.AlertDescription = "Gateway " + heartbeat.DeviceID + " missed heartbeat"
 	heartbeatMissed.Severity = "critical"
 	heartbeatMissed.SentOn = helper.UnixMilliNow()
 	heartbeatMissed.Facilities = defineFacilities(heartbeat, heartbeatMissed)
+	heartbeatMissed.GatewayId = heartbeat.DeviceID
+	// DeviceId is same as GatewayDeviceId as there is no sensor id
+	// available in a heartbeat
 	heartbeatMissed.DeviceID = heartbeat.DeviceID
-	if heartbeat.MeshID != "" {
-		optionalMap["mesh_id"] = heartbeat.MeshID
-	}
-	if heartbeat.MeshNodeID != "" {
-		optionalMap["mesh_node_id"] = heartbeat.MeshNodeID
-	}
-	heartbeatMissed.Optional = optionalMap
 
 	return heartbeatMissed, heartbeat.DeviceID
 }

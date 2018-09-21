@@ -80,7 +80,7 @@ func TestGatewayStatus(t *testing.T) {
 		}
 		time.Sleep(2 * time.Second)
 	}
-	// looping through notification channel to make sure we get Gateway deregistred alert before checking for error conditions
+	// looping through notification channel to make sure we get Gateway deregistered alert before checking for error conditions
 	for noti := range notificationChan {
 		if noti.NotificationMessage == "Gateway Deregistered Alert" {
 			break
@@ -103,6 +103,9 @@ func TestHeartbeatAlert(t *testing.T) {
 	heartbeatAlert, deviceID := models.GatewayRegisteredAlert(heartbeat)
 	if deviceID != heartbeat.DeviceID {
 		t.Error("Alert device id does not match hearbeat device id")
+	}
+	if heartbeatAlert.GatewayId != heartbeat.DeviceID {
+		t.Error("Alert gateway device id does not match hearbeat device id")
 	}
 	if len(heartbeatAlert.Facilities) != len(heartbeat.Facilities) {
 		t.Error("Number of alert facilitites does not match heartbeat facilities")
@@ -301,7 +304,6 @@ func mockGenerateHeartbeat() []byte {
 		"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
 		"value": {
 		  "device_id": "rrpgw",
-		  "gateway_id": "rrpgw",
 		  "facilities": [
 				"facility1",
 				"facility2"
@@ -378,7 +380,6 @@ func mockGenerateHeartbeatNoFacility() []byte {
 		"type": "urn:x-intel:context:retailsensingplatform:heartbeat",
 		"value": {
 		  "device_id": "rrpgw",
-		  "gateway_id": "rrpgw",
 		  "facilities": [],
 		  "facility_groups_cfg": null,
 		  "mesh_id": null,
