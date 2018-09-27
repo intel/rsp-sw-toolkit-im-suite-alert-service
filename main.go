@@ -24,20 +24,19 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"context_linux_go/core"
 	"context_linux_go/core/sensing"
-
-	"fmt"
-	"strconv"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -49,7 +48,6 @@ import (
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/sgtin96"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/utils"
 )
 
@@ -83,9 +81,9 @@ func initSensing(notificationChan chan alert.Notification) {
 	onSensingError := make(core.ErrorChannel, 1)
 
 	sensingOptions := core.SensingOptions{
-		Server:  config.AppConfig.ContextSensing,
-		Publish: true,
-		Secure:  config.AppConfig.SecureMode,
+		Server:                      config.AppConfig.ContextSensing,
+		Publish:                     true,
+		Secure:                      config.AppConfig.SecureMode,
 		SkipCertificateVerification: config.AppConfig.SkipCertVerify,
 		Application:                 config.AppConfig.ServiceName,
 		OnStarted:                   onSensingStarted,
@@ -98,6 +96,8 @@ func initSensing(notificationChan chan alert.Notification) {
 	sensingSdk.Start(sensingOptions)
 
 	go func(options core.SensingOptions) {
+		mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
+
 		onHeartbeat := make(core.ProviderItemChannel, 10)
 		onAlert := make(core.ProviderItemChannel, 10)
 		onShippingNotice := make(core.ProviderItemChannel, 10)
@@ -151,15 +151,11 @@ func initSensing(notificationChan chan alert.Notification) {
 					var err error
 					jsonBytes, err := json.MarshalIndent(*shippingNotice, "", "  ")
 					if err != nil {
-						log.Errorf("Unable to process alert")
+						errorHandler("error marshalling shipping notice data", err, &mRRSProcessShippingNoticeError)
 					}
 					skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
 					if err := skuMapping.processShippingNotice(&jsonBytes, notificationChan); err != nil {
-						log.WithFields(log.Fields{
-							"Method": "main",
-							"Action": "process Shipping Notice",
-							"Error":  err.Error(),
-						}).Error("error processing alert")
+						errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
 					}
 				}(shippingNotice)
 
@@ -273,6 +269,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 }
 
 func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
+	mRRSAsnsNotWhitelisted := metrics.GetOrRegisterGaugeCollection("Rfid-Alert.ASNsNotWhitelisted", nil)
 	log.Debugf("Received advanced shipping notice data:\n%s", string(*jsonBytes))
 
 	var data map[string]interface{}
@@ -287,14 +284,14 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 		return errors.New("Missing Value Field")
 	}
 
-	epcs, ok := value["data"].([]interface{})
+	shippingNotice, ok := value["data"].([]interface{})
 	if !ok { //nolint: golint
 		return errors.New("Missing Data Field")
 	}
 
-	allGtins, err := convertToGtinsOrWrins(epcs)
+	gtins, err := extractGtins(shippingNotice)
 
-	oDataQuery := buildODataQuery(allGtins)
+	oDataQuery := buildODataQuery(gtins)
 	if err != nil {
 		log.Errorf("Problem converting shipping notice data to GTINs or WRINs: %s", err)
 	}
@@ -332,7 +329,7 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 		whitelistedGtins = append(whitelistedGtins, gtinsFromSkuMapping...)
 	}
 
-	notWhitelisted := utils.Filter(allGtins, func(v string) bool {
+	notWhitelisted := utils.Filter(gtins, func(v string) bool {
 		return !utils.Include(whitelistedGtins, v)
 	})
 
@@ -349,6 +346,8 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	}
 
 	if len(notWhitelisted) > 0 {
+		mRRSAsnsNotWhitelisted.Add(int64(len(notWhitelisted)))
+
 		alertBytes, err := asn.GenerateNotWhitelistedAlert(asnList)
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -375,34 +374,24 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	return nil
 }
 
-func convertToGtinsOrWrins(epcs []interface{}) ([]string, error) {
+func extractGtins(shippingNotice []interface{}) ([]string, error) {
+	var advanceShippingNotices []models.AdvanceShippingNotice
+	shippingNoticeBytes, err := json.Marshal(shippingNotice)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(shippingNoticeBytes, &advanceShippingNotices)
+	if err != nil {
+		log.Errorf("Problem unmarshalling the data.")
+		return nil, err
+	}
+
 	var gtins []string
-	log.Debugf("Attempting to convert %d.", len(epcs))
-	for _, e := range epcs {
-		var advanceShippingNotice models.AdvanceShippingNotice
-		epcBytes, err := json.Marshal(e)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(epcBytes, &advanceShippingNotice)
-		if err != nil {
-			log.Errorf("Problem unmarshalling the data.")
-			return nil, err
-		}
-		if !config.AppConfig.EpcToWrin {
-			log.Debugf("Converting this data to GTIN: %s", advanceShippingNotice.Epc)
-			if gtin, err := sgtin96.GetGtin14(advanceShippingNotice.Epc); err == nil {
-				gtins = append(gtins, gtin)
-			} else {
-				// Drop gtin that is undefined
-				log.Warnf("Invalid shipping notice EPC SGTIN 96 format found: %s", advanceShippingNotice.Epc)
-			}
-		} else {
-			wrin14 := convertEpcToWrin14(advanceShippingNotice.Epc)
-			gtins = append(gtins, wrin14)
+	for _, advanceShippingNotice := range advanceShippingNotices {
+		for _, item := range advanceShippingNotice.Items {
+			gtins = append(gtins, item.Gtin)
 		}
 	}
-	log.Debugf("Converted %d epcs.", len(gtins))
 	return gtins, nil
 }
 
@@ -412,16 +401,6 @@ func buildODataQuery(gtins []string) []string {
 		queries = append(queries, "(upclist.upc eq '"+gtin+"')")
 	}
 	return queries
-}
-
-// Convert EPC value to WRIN
-func convertEpcToWrin14(epc string) string {
-	wrin := epc[13:] //returns 11 digits
-	//Because the sku mapping pads the wrin to a length of 14
-	//when we convert by taking the last 11 of the epc to get the wrin
-	//we must also pad it to 14 so when we do a look up on the wrin in the
-	//sku mapping service, there will be a match
-	return "000" + wrin //pad with 3 leading zeros to conform to same length of gtin14, sku mapping pads the wrin to 14
 }
 
 // MakeGetCallToSkuMapping makes call to the Sku Mapping service to retrieve list of skus/gtins/upcs
@@ -616,5 +595,15 @@ func initMetrics() {
 			"",
 			nil,
 		)
+	}
+}
+
+func errorHandler(message string, err error, errorGauge *metrics.Gauge) {
+	if err != nil {
+		(*errorGauge).Update(1)
+		log.WithFields(log.Fields{
+			"Method": "main",
+			"Error":  err.Error(),
+		}).Error(message)
 	}
 }

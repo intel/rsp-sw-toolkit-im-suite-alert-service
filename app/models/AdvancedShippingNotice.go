@@ -24,10 +24,18 @@ import (
 )
 
 // AdvanceShippingNotice is the model containing advance shipping item epcs
-// swagger:model Tag
+// swagger:model AdvanceShippingNotice
 type AdvanceShippingNotice struct {
-	// SGTIN EPC code
-	Epc string `json:"epc"`
+	AsnID 		string							`json:"asnId"`
+	UpdatedOn	string							`json:"updatedOn"`
+	SiteID		string							`json:"siteId"`
+	Items 		[]AdvanceShippingNoticeItem 	`json:"items"`
+}
+
+type AdvanceShippingNoticeItem struct {
+	Sku 		string 		`json:"sku"`
+	Gtin 		string  	`json:"upc"`
+	Epcs 		[]string 	`json:"epcs"`
 }
 
 // SkuMappingResponse is the model of the response from the mapping sku service
