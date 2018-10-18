@@ -26,16 +26,16 @@ import (
 // AdvanceShippingNotice is the model containing advance shipping item epcs
 // swagger:model AdvanceShippingNotice
 type AdvanceShippingNotice struct {
-	AsnID 		string							`json:"asnId"`
-	UpdatedOn	string							`json:"updatedOn"`
-	SiteID		string							`json:"siteId"`
-	Items 		[]AdvanceShippingNoticeItem 	`json:"items"`
+	AsnID     string                      `json:"asnId"`
+	EventTime string                      `json:"eventTime"`
+	SiteID    string                      `json:"siteId"`
+	Items     []AdvanceShippingNoticeItem `json:"items"`
 }
 
 type AdvanceShippingNoticeItem struct {
-	Sku 		string 		`json:"sku"`
-	Gtin 		string  	`json:"upc"`
-	Epcs 		[]string 	`json:"epcs"`
+	Sku  string   `json:"itemId"`
+	Gtin string   `json:"itemGtin"`
+	Epcs []string `json:"itemEpcs"`
 }
 
 // SkuMappingResponse is the model of the response from the mapping sku service
@@ -60,12 +60,12 @@ type Gtin struct {
 }
 
 // ConvertToASNList convert array string to array of Gtin objects
-func ConvertToASNList(asns []string) ([]Gtin, error){
+func ConvertToASNList(asns []string) ([]Gtin, error) {
 	if len(asns) == 0 {
-			return nil, errors.Errorf("List can't be empty")
+		return nil, errors.Errorf("List can't be empty")
 
 	}
-	asnList := make([]Gtin,len(asns))
+	asnList := make([]Gtin, len(asns))
 	for i := 0; i < len(asns); i++ {
 		asnList[i].Gtin = asns[i]
 	}
