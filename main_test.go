@@ -163,6 +163,25 @@ func TestProcessShippingNoticeWRINs(t *testing.T) {
 
 }
 
+func TestProcessEmptyShippingNoticeWRINs(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		t.Error("No requests were expected because Empty WRINs")
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+
+	config.AppConfig.EpcToWrin = true
+	inputData := mockGenerateEmptyShippingNoticeWRINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
+}
+
 func TestProcessShippingNoticeGTINs(t *testing.T) {
 	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -185,6 +204,24 @@ func TestProcessShippingNoticeGTINs(t *testing.T) {
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateShippingNoticeGTINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
+}
+
+func TestProcessEmptyShippingNoticeGTINs(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		t.Error("No requests were expected because Empty WRINs")
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	inputData := mockGenerateEmptyShippingNoticeGTINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
 		t.Errorf("Error processing shipping notice %s", shippingError)
@@ -318,6 +355,34 @@ func mockGenerateHeartbeat() []byte {
 		}
 	}`)
 	return heartbeat
+}
+
+func mockGenerateEmptyShippingNoticeWRINs() []byte {
+	shippingNotice := []byte(`{
+  			"macaddress": "02:42:0a:00:1e:1a",
+  			"application": "productmasterdataservicewithdropbox",
+  			"providerId": -1,
+  			"dateTime": "2018-07-30T19:07:10.461Z",
+  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
+  			"value": {
+    			"data": []
+  			}
+	}`)
+	return shippingNotice
+}
+
+func mockGenerateEmptyShippingNoticeGTINs() []byte {
+	shippingNotice := []byte(`{
+  			"macaddress": "02:42:0a:00:1e:1a",
+  			"application": "productmasterdataservicewithdropbox",
+  			"providerId": -1,
+  			"dateTime": "2018-07-30T19:07:10.461Z",
+  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
+  			"value": {
+    			"data": []
+  			}
+	}`)
+	return shippingNotice
 }
 
 func mockGenerateShippingNoticeWRINs() []byte {

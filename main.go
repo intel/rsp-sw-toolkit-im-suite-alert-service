@@ -291,6 +291,10 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 
 	gtins, err := extractGtins(shippingNotice)
 
+	if len(gtins) == 0 {
+		log.Info("Received zero gtins in shipping notice.")
+		return nil
+	}
 	oDataQuery := buildODataQuery(gtins)
 	if err != nil {
 		log.Errorf("Problem converting shipping notice data to GTINs or WRINs: %s", err)
