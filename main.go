@@ -339,17 +339,17 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 
 	notWhitelisted = utils.RemoveDuplicates(notWhitelisted)
 
-	asnList, err := models.ConvertToASNList(notWhitelisted)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"Method": "processShippingNotice",
-			"Action": "Calling ConvertToASNList",
-			"Error":  err.Error(),
-		}).Error(err)
-		return errors.Wrapf(err, "unable to convert to asns")
-	}
-
 	if len(notWhitelisted) > 0 {
+		asnList, err := models.ConvertToASNList(notWhitelisted)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"Method": "processShippingNotice",
+				"Action": "Calling ConvertToASNList",
+				"Error":  err.Error(),
+			}).Error(err)
+			return errors.Wrapf(err, "unable to convert to asns")
+		}
+
 		mRRSAsnsNotWhitelisted.Add(int64(len(notWhitelisted)))
 
 		alertBytes, err := asn.GenerateNotWhitelistedAlert(asnList)
