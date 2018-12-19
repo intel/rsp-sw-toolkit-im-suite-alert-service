@@ -48,16 +48,71 @@ func Test_processAlert(t *testing.T) {
 	notificationChan := make(chan Notification, config.AppConfig.NotificationChanSize)
 	inputData := mockGenerateAlertFromGateway()
 	alertError := ProcessAlert(&inputData, notificationChan)
+	config.AppConfig.AlertDestination = "http://www.test.com"
 	if alertError != nil {
 		t.Errorf("Error processing alerts %s", alertError)
 	}
 	go NotifyChannel(notificationChan)
 }
 
-func TestGeneratePayloadAlert(t *testing.T) {
+func Test_processAlert_NoDestination(t *testing.T) {
+	notificationChan := make(chan Notification, config.AppConfig.NotificationChanSize)
+	inputData := mockGenerateAlertFromGateway()
+	alertError := ProcessAlert(&inputData, notificationChan)
+	config.AppConfig.AlertDestination = ""
+	if alertError != nil {
+		t.Errorf("Error processing alerts %s", alertError)
+	}
+	go NotifyChannel(notificationChan)
+}
+
+func TestGeneratePayloadAlert_withDestination(t *testing.T) {
 	testNotification := new(Notification)
 	inputData := mockGenerateAlert()
-	alertPayloadURL := config.AppConfig.AlertDestination
+	alertPayloadURL := "http://www.test.com"
+	var alert models.Alert
+	err := json.Unmarshal(inputData, &alert)
+	if err != nil {
+		t.Errorf("error parsing Alert: %s", err)
+	}
+
+	testNotification.NotificationType = "Alert"
+	testNotification.NotificationMessage = "ProcessAlert"
+	testNotification.Data = alert
+	testNotification.GatewayID = "rrs-gateway"
+	testNotification.Endpoint = alertPayloadURL
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+
+	generateErr := testNotification.GeneratePayload()
+	if generateErr != nil {
+		t.Errorf("Error in generating payload %v", generateErr)
+	}
+	notifyData, ok := testNotification.Data.(models.CloudConnectorPayload)
+	if !ok {
+		t.Error("Found incompatible payload type in notification data")
+	}
+	if notifyData.URL != alertPayloadURL {
+		t.Error("Generated Payload has wrong URL for sending alerts")
+	}
+	alertData, ok := notifyData.Payload.(models.Alert)
+	if !ok {
+		t.Error("Body of payload is not of alert type")
+	}
+	validData := reflect.DeepEqual(alertData, alert)
+	if !validData {
+		t.Error("Alert data and generated payload data is not equal")
+	}
+
+}
+
+func TestGeneratePayloadAlert_noDestination(t *testing.T) {
+	testNotification := new(Notification)
+	inputData := mockGenerateAlert()
+	alertPayloadURL := ""
 	var alert models.Alert
 	err := json.Unmarshal(inputData, &alert)
 	if err != nil {

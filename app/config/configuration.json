@@ -6,7 +6,7 @@
   "maxMissedHeartbeats": 3,
   "loggingLevel": "debug",
   "notificationChanSize": 100,
-  "cloudConnectorURL": "http://127.0.0.1:8081",
+  "cloudConnectorURL": "http://localhost:8089",
   "cloudConnectorEndpoint":"/callwebhook",
   "secureMode" : true,
   "skipCertVerify" : true,

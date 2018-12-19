@@ -113,22 +113,32 @@ func NotifyChannel(notificationChan chan Notification) {
 		if generateErr != nil {
 			log.Errorf("Problem generating payload for %s, %s", notification.NotificationType, generateErr)
 		} else {
-			_, err := PostNotification(notification.Data, cloudConnector)
+
+			dataBytes, err := json.MarshalIndent(notification.Data, "", "    ")
 			if err != nil {
-				log.Errorf("Problem sending notification for %s, %s", notification.NotificationMessage, err)
+				log.Errorf("unable to marshal. %s", err)
+			}
+
+			cloudConnectorPayload := getCloudConnectorPayload(dataBytes)
+			if cloudConnectorPayload.URL != "" {
+				_, err = PostNotification(dataBytes, cloudConnector)
+				if err != nil {
+					log.Errorf("Problem sending notification for %s, %s", notification.NotificationMessage, err)
+				}
+			} else {
+				log.Warn("Payload for Cloud Connector doesn't include a destination URL.  Not sending POST message to Cloud Connector.")
 			}
 		}
 	}
 }
 
 // PostNotification post notification data vial http call to the toURL
-func PostNotification(data interface{}, toURL string) ([]byte, error) {
+func PostNotification(data []byte, toURL string) ([]byte, error) {
 	// Metrics
 	metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Attempt", nil).Update(1)
 	startTime := time.Now()
 	defer metrics.GetOrRegisterTimer("RFID-Alert.PostNotification.Latency", nil).UpdateSince(startTime)
 	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Success", nil)
-	mMarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Marshal-Error", nil)
 	mNotifyErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Notify-Error", nil)
 
 	timeout := time.Duration(connectionTimeout) * time.Second
@@ -136,15 +146,10 @@ func PostNotification(data interface{}, toURL string) ([]byte, error) {
 		Timeout: timeout,
 	}
 
-	mData, err := json.MarshalIndent(data, "", "    ")
+	log.Debugf("Payload to cloud-connector after marshalling:\n%s", string(data))
+	request, err := http.NewRequest("POST", toURL, bytes.NewBuffer(data))
 	if err != nil {
-		mMarshalErr.Update(1)
-		return nil, errors.Errorf("Payload Marshalling failed  %v", err)
-	}
-	log.Debugf("Payload to cloud-connector after marshalling:\n%s", string(mData))
-	request, reqErr := http.NewRequest("POST", toURL, bytes.NewBuffer(mData))
-	if reqErr != nil {
-		return nil, reqErr
+		return nil, err
 	}
 	request.Header.Set("content-type", jsonApplication)
 	response, respErr := client.Do(request)
@@ -179,4 +184,17 @@ func PostNotification(data interface{}, toURL string) ([]byte, error) {
 	log.Debug("Notification posted")
 	mSuccess.Update(1)
 	return responseData, nil
+}
+
+func getCloudConnectorPayload(dataBytes []byte) models.CloudConnectorPayload {
+
+	var cloudConnectorPayload models.CloudConnectorPayload
+
+	err := json.Unmarshal(dataBytes, &cloudConnectorPayload)
+	if err != nil {
+		log.Errorf("unable to unmarshal. %s", err)
+		return models.CloudConnectorPayload{}
+	}
+
+	return cloudConnectorPayload
 }
