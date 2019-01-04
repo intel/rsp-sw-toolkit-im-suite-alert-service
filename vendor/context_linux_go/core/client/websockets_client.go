@@ -1,12 +1,12 @@
 //
 // INTEL CONFIDENTIAL
 // Copyright 2017 Intel Corporation.
-// 
+//
 // This software and the related documents are Intel copyrighted materials, and your use of them is governed
 // by the express license under which they were provided to you (License). Unless the License provides otherwise,
 // you may not use, modify, copy, publish, distribute, disclose or transmit this software or the related documents
 // without Intel's prior written permission.
-// 
+//
 // This software and the related documents are provided as is, with no express or implied warranties, other than
 // those that are expressly stated in the License.
 //
@@ -20,12 +20,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	logger "context_linux_go/logger"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
@@ -55,9 +57,12 @@ type WSClient struct { // nolint: aligncheck
 	serverConnection *websocket.Conn
 	keepAlive        bool
 	doneChan         chan bool
-	isConnected      bool
+	jsonMessageChan  chan interface{}
+	pingChan         chan string
+
+	isConnected        bool
 	isDeviceRegistered bool
-	responseHandlers map[int]interface{}
+	responseHandlers   map[int]interface{}
 
 	nodeID   string
 	password string
@@ -67,11 +72,13 @@ type WSClient struct { // nolint: aligncheck
 
 	retries       int
 	retryInterval int
+	localogger    logger.ContextGoLogger
 
 	respHandlerMutex sync.Mutex
-	connCheckMutex sync.Mutex
+	connCheckMutex   sync.Mutex
 
-	cmdProc CommandProcessor
+	cmdProc  CommandProcessor
+	pongWait time.Duration
 }
 
 // NewWebSocketsClient creates a new wsClient connection using websockets
@@ -113,7 +120,41 @@ func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemCh
 
 	wsClient.cmdProc = cmdProc
 
+	wsClient.jsonMessageChan = make(chan interface{}, 100000)
+	wsClient.pingChan = make(chan string, 1)
+	wsClient.localogger = *logger.New("saf-websocket client", logger.JSONFormat, os.Stdout, logger.DebugLevel)
+	wsClient.pongWait = 60 * time.Second
+	go func() {
+		for {
+			// below code is to make sure ping handler gets preference over writeJson
+			select {
+			case <-wsClient.pingChan:
+				wsClient.writePong()
+			default:
+			}
+			select {
+			case <-wsClient.pingChan:
+				wsClient.writePong()
+			case jsonStr := <-wsClient.jsonMessageChan:
+				if wsClient.serverConnection != nil {
+					wsClient.localogger.Info("sending message to broker", logger.Params{"lengthOfChanBuffer": len(wsClient.jsonMessageChan)})
+					err := wsClient.serverConnection.WriteJSON(jsonStr)
+					if err != nil {
+						wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
+					}
+				}
+			}
+		}
+	}()
+
 	return &wsClient
+}
+
+func (wsClient *WSClient) writePong() {
+	if wsClient.serverConnection != nil {
+		wsClient.localogger.Info("Responding with Pong", nil)
+		wsClient.serverConnection.WriteMessage(websocket.PongMessage, []byte{})
+	}
 }
 
 // Publish sends a new item to the wsClient to be distributed
@@ -142,7 +183,7 @@ func (wsClient *WSClient) EstablishConnection() error {
 	serverURL := fmt.Sprintf("%s://%s/context/v1/socket", wsClient.connectionPrefix, wsClient.server)
 
 	wsHeaders := http.Header{
-		"Origin":                   {"http://localhost/"},
+		"Origin": {"http://localhost/"},
 	}
 
 	dialer := websocket.Dialer{
@@ -205,8 +246,6 @@ func (wsClient *WSClient) Close() {
 }
 
 func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, responseHandler interface{}, macAddress string, application string) {
-	wsClient.respHandlerMutex.Lock()
-	defer wsClient.respHandlerMutex.Unlock()
 
 	if macAddress == "" {
 		macAddress = defaultIPAddress
@@ -232,19 +271,12 @@ func (wsClient *WSClient) sendCommandRPC(method string, params []interface{}, re
 		Params: params,
 		ID:     &requestID,
 	}
-
+	//wsClient.localogger.Debug("sendCommandRPC", logger.Params{"requestID": wsClient.requestID})
 	wsClient.requestID++
-
-
-	err := wsClient.serverConnection.WriteJSON(jsonStr)
-	if err != nil {
-		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
-	}
+	wsClient.jsonMessageChan <- jsonStr
 }
 
 func (wsClient *WSClient) sendCommand(method string, params serverParams, responseHandler interface{}, macAddress string, application string) {
-	wsClient.respHandlerMutex.Lock()
-	defer wsClient.respHandlerMutex.Unlock()
 
 	if macAddress == "" {
 		macAddress = defaultIPAddress
@@ -270,13 +302,9 @@ func (wsClient *WSClient) sendCommand(method string, params serverParams, respon
 		Params: &params,
 		ID:     &requestID,
 	}
-
+	wsClient.jsonMessageChan <- jsonStr
+	//wsClient.localogger.Debug("sendCommand", logger.Params{"requestID": wsClient.requestID, "lengthOfChanBuffer": len(wsClient.jsonMessageChan)})
 	wsClient.requestID++
-
-	err := wsClient.serverConnection.WriteJSON(jsonStr)
-	if err != nil {
-		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
-	}
 }
 
 func (wsClient *WSClient) sendToServer(method string, handler string, query string, body interface{}, responseHandler interface{}) {
@@ -300,18 +328,11 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 	wsClient.keepAlive = true
 
 	//Ping Pong Handler
-	var pongWait = 60 * time.Second
 	wsClient.serverConnection.SetPingHandler(
-		func(string) error {
-			if err := wsClient.serverConnection.WriteMessage(websocket.PongMessage, []byte{}); err != nil {
-				return err
-			}
-			err := wsClient.serverConnection.SetReadDeadline(time.Now().Add(pongWait));
-			if err != nil {
-				return err
-			}
-			err = wsClient.serverConnection.SetWriteDeadline(time.Now().Add(pongWait));
-			return err
+		func(m string) error {
+			wsClient.localogger.Info("ping recieved", nil)
+			wsClient.pingChan <- m
+			return nil
 		})
 
 	for wsClient.keepAlive {
@@ -320,9 +341,7 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 			wsClient.errChan <- core.ErrorData{Error: errors.New("Websocket Error - Connection Does Not Exist")}
 			break
 		}
-
 		_, msg, err := wsClient.serverConnection.ReadMessage()
-
 		if err != nil {
 			// If keepAlive is false, we are in the shutdown state and so can recieve errors relating
 			// to a closed connection which should be ignored (since there isn't another way to break out of Receive)
@@ -332,7 +351,7 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 			break
 		}
 		rawMessage := map[string]*json.RawMessage{}
-		err=json.Unmarshal(msg, &rawMessage)
+		err = json.Unmarshal(msg, &rawMessage)
 
 		// Unmarshal the rest of the message based on its keys (request, response, method)
 		if err == nil {
@@ -340,6 +359,7 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 				srvMessage := serverMessage{}
 				err = json.Unmarshal(msg, &srvMessage)
 				if srvMessage.Error != nil {
+					wsClient.localogger.Debug(srvMessage.Error.Message.(string), nil)
 					wsClient.errChan <- core.ErrorData{Error: fmt.Errorf("Received error response: %s %d",
 						srvMessage.Error.Message, srvMessage.Error.Code)}
 				}
@@ -402,8 +422,6 @@ func (wsClient *WSClient) handleItemPut(message *serverMessage) { // nolint: goc
 }
 
 func (wsClient *WSClient) handleResponse(message *serverMessage) {
-	wsClient.respHandlerMutex.Lock()
-	defer wsClient.respHandlerMutex.Unlock()
 
 	var responseID int
 	var responseIDFloat float64
@@ -486,11 +504,8 @@ func (wsClient *WSClient) sendRPCResponse(request *rpcMessage, result *result, e
 	} else {
 		response.Result = result
 	}
-
-	err := wsClient.serverConnection.WriteJSON(response)
-	if err != nil {
-		wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
-	}
+	//wsClient.localogger.Debug("sendRPCResponse", nil)
+	wsClient.jsonMessageChan <- response
 }
 
 func isResponse(message *map[string]*json.RawMessage) bool {
