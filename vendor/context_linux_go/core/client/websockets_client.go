@@ -124,20 +124,21 @@ func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemCh
 	wsClient.pingChan = make(chan string, 1)
 	wsClient.localogger = *logger.New("saf-websocket client", logger.JSONFormat, os.Stdout, logger.DebugLevel)
 	wsClient.pongWait = 60 * time.Second
+	ticker := time.NewTicker(60 * time.Second)
 	go func() {
 		for {
 			// below code is to make sure ping handler gets preference over writeJson
 			select {
-			case <-wsClient.pingChan:
+			case <- ticker.C:
 				wsClient.writePong()
 			default:
 			}
 			select {
-			case <-wsClient.pingChan:
+			case <-ticker.C:
 				wsClient.writePong()
 			case jsonStr := <-wsClient.jsonMessageChan:
 				if wsClient.serverConnection != nil {
-					wsClient.localogger.Info("sending message to broker", logger.Params{"lengthOfChanBuffer": len(wsClient.jsonMessageChan)})
+					//wsClient.localogger.Info("sending message to broker", logger.Params{"lengthOfChanBuffer": len(wsClient.jsonMessageChan)})
 					err := wsClient.serverConnection.WriteJSON(jsonStr)
 					if err != nil {
 						wsClient.handleKeepAliveIfErrorDuringReadOrWrite(err)
@@ -152,7 +153,6 @@ func NewWebSocketsClient(options core.SensingOptions, onItem core.ProviderItemCh
 
 func (wsClient *WSClient) writePong() {
 	if wsClient.serverConnection != nil {
-		wsClient.localogger.Info("Responding with Pong", nil)
 		wsClient.serverConnection.WriteMessage(websocket.PongMessage, []byte{})
 	}
 }
@@ -330,8 +330,8 @@ func (wsClient *WSClient) webSocketListener() { //nolint: gocyclo
 	//Ping Pong Handler
 	wsClient.serverConnection.SetPingHandler(
 		func(m string) error {
-			wsClient.localogger.Info("ping recieved", nil)
-			wsClient.pingChan <- m
+			//wsClient.localogger.Info("ping recieved", nil)
+			//wsClient.pingChan <- m
 			return nil
 		})
 
