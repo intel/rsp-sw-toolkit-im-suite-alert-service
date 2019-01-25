@@ -270,14 +270,6 @@ func (sensing *Sensing) establishConnection(onStartHandler interface{}) bool{
 		sensing.errC <- core.ErrorData{Error: fmt.Errorf(
 			"Websocket connection error. Broker address: %v", sensing.server)}
 	} else {
-		onStartHandler := func() {
-			for key := range sensing.itemChannels {
-				i := strings.Index(key, "urn")
-				providerID := key[0 : i-1]
-				contextType := key[i:len(key)]
-				sensing.AddContextTypeListener(providerID, contextType, nil, nil)
-			}
-		}
 		sensing.clientInterface.RegisterDevice(onStartHandler)
 	}
 	return false
@@ -605,12 +597,6 @@ func (sensing *Sensing) registerContextTypesWithBroker(provider core.ProviderInt
 //
 // Stringified integer provider ID - for local providers
 func (sensing *Sensing) AddContextTypeListener(providerID string, contextType string, onItem *core.ProviderItemChannel, onErr *core.ErrorChannel) {
-	params := make([]interface{}, 2)
-	params[0] = []string{contextType}
-	params[1] = []string{}
-
-	valChannel := make(chan interface{}, 1)
-	sensing.SendCommand("0:0:0:0:0:0", "sensing", 0, "urn:x-intel:context:command:subscribe", params, valChannel)
 	eventKey := providerID + ":" + contextType
 
 	sensing.chanMutex.Lock()
