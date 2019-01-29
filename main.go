@@ -289,52 +289,52 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 		return errors.New("Missing Data Field")
 	}
 
-	gtins, err := extractGtins(shippingNotice)
+	productIDs, err := extractProductIDs(shippingNotice)
 
-	if len(gtins) == 0 {
-		log.Info("Received zero gtins in shipping notice.")
+	if len(productIDs) == 0 {
+		log.Info("Received zero productIDs in shipping notice.")
 		return nil
 	}
-	oDataQuery := buildODataQuery(gtins)
+	oDataQuery := buildODataQuery(productIDs)
 	if err != nil {
-		log.Errorf("Problem converting shipping notice data to GTINs or WRINs: %s", err)
+		log.Errorf("Problem converting shipping notice data to GTINs or Proprietary IDs: %s", err)
 	}
 
-	var whitelistedGtins []string
+	var whitelistedProductIDs []string
 	var stringBytes bytes.Buffer
 	if len(oDataQuery) > config.AppConfig.BatchSizeMax {
 		var batchSize = config.AppConfig.BatchSizeMax
 		var start = 0
 		for start < len(oDataQuery) {
 			stringBytes.WriteString(strings.Join(oDataQuery[start:start+batchSize], " or "))
-			gtinsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
+			productsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
 			if callErr != nil {
 				log.WithFields(log.Fields{
 					"Method": "processShippingNotice",
 					"Action": "Calling MakeGetCallToSkuMapping",
 					"Error":  callErr.Error(),
 				}).Error(callErr)
-				return errors.Wrapf(callErr, "unable to get list of gtins from mapping sku service")
+				return errors.Wrapf(callErr, "unable to get list of productIDs from mapping sku service")
 			}
-			whitelistedGtins = append(whitelistedGtins, gtinsFromSkuMapping...)
+			whitelistedProductIDs = append(whitelistedProductIDs, productsFromSkuMapping...)
 			start += batchSize
 		}
 	} else {
 		stringBytes.WriteString(strings.Join(oDataQuery, " or "))
-		gtinsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
+		productsFromSkuMapping, callErr := MakeGetCallToSkuMapping(stringBytes.String(), skuMapping.url)
 		if callErr != nil {
 			log.WithFields(log.Fields{
 				"Method": "processShippingNotice",
 				"Action": "Calling MakeGetCallToSkuMapping",
 				"Error":  callErr.Error(),
 			}).Error(callErr)
-			return errors.Wrapf(callErr, "unable to get list of gtins from mapping sku service")
+			return errors.Wrapf(callErr, "unable to get list of productIDs from mapping sku service")
 		}
-		whitelistedGtins = append(whitelistedGtins, gtinsFromSkuMapping...)
+		whitelistedProductIDs = append(whitelistedProductIDs, productsFromSkuMapping...)
 	}
 
-	notWhitelisted := utils.Filter(gtins, func(v string) bool {
-		return !utils.Include(whitelistedGtins, v)
+	notWhitelisted := utils.Filter(productIDs, func(v string) bool {
+		return !utils.Include(whitelistedProductIDs, v)
 	})
 
 	notWhitelisted = utils.RemoveDuplicates(notWhitelisted)
@@ -378,7 +378,7 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	return nil
 }
 
-func extractGtins(shippingNotice []interface{}) ([]string, error) {
+func extractProductIDs(shippingNotice []interface{}) ([]string, error) {
 	var advanceShippingNotices []models.AdvanceShippingNotice
 	shippingNoticeBytes, err := json.Marshal(shippingNotice)
 	if err != nil {
@@ -390,38 +390,38 @@ func extractGtins(shippingNotice []interface{}) ([]string, error) {
 		return nil, err
 	}
 
-	var gtins []string
+	var productIDs []string
 	for _, advanceShippingNotice := range advanceShippingNotices {
 		for _, item := range advanceShippingNotice.Items {
-			gtins = append(gtins, item.Gtin)
+			productIDs = append(productIDs, item.ProductID)
 		}
 	}
-	return gtins, nil
+	return productIDs, nil
 }
 
-func buildODataQuery(gtins []string) []string {
+func buildODataQuery(productIDs []string) []string {
 	var queries []string
-	for _, gtin := range gtins {
-		queries = append(queries, "(upclist.upc eq '"+gtin+"')")
+	for _, productID := range productIDs {
+		queries = append(queries, "(productlist.productId eq '"+productID+"')")
 	}
 	return queries
 }
 
-// MakeGetCallToSkuMapping makes call to the Sku Mapping service to retrieve list of skus/gtins/upcs
+// MakeGetCallToSkuMapping makes call to the Sku Mapping service to retrieve list of products
 func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error) {
 	// Metrics
-	metrics.GetOrRegisterMeter(`InventoryService.makePostCall.Attempt`, nil).Mark(1)
-	mSuccess := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.Success`, nil)
-	mGetErr := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.makePostCall-Error`, nil)
-	mStatusErr := metrics.GetOrRegisterGauge(`InventoryService.makePostCall.requestStatusCode-Error`, nil)
-	mGetLatency := metrics.GetOrRegisterTimer(`InventoryService.makePostCall.makePostCall-Latency`, nil)
+	metrics.GetOrRegisterMeter(`RfidAlertService.MakeGetCallToSkuMapping.Attempt`, nil).Mark(1)
+	mSuccess := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.Success`, nil)
+	mGetErr := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.makePostCall-Error`, nil)
+	mStatusErr := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.requestStatusCode-Error`, nil)
+	mGetLatency := metrics.GetOrRegisterTimer(`RfidAlertService.MakeGetCallToSkuMapping.makePostCall-Latency`, nil)
 
 	timeout := time.Duration(15) * time.Second
 	client := &http.Client{
 		Timeout: timeout,
 	}
 	urlEncode := &url.URL{Path: stringBytes}
-	urlString := skuUrl + "?$filter=" + urlEncode.String() + "&$select=upclist.upc"
+	urlString := skuUrl + "?$filter=" + urlEncode.String() + "&$select=productlist.productId"
 
 	log.Debugf("Call mapping service endpoint: %s", urlString)
 
@@ -478,15 +478,15 @@ func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error
 		return nil, errors.New("failed to Unmarshal responsedata")
 	}
 
-	var gtins []string
+	var productIDs []string
 
 	for _, productData := range result.ProdData {
-		for _, gtinList := range productData.GtinList {
-			gtins = append(gtins, gtinList.Gtin)
+		for _, productList := range productData.ProductList {
+			productIDs = append(productIDs, productList.ProductID)
 		}
 	}
 
-	return gtins, nil
+	return productIDs, nil
 }
 
 func main() {

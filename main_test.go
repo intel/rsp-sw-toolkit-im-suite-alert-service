@@ -155,7 +155,7 @@ func TestProcessShippingNoticeWRINs(t *testing.T) {
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 
 	config.AppConfig.EpcToWrin = true
-	inputData := mockGenerateShippingNoticeWRINs()
+	inputData := mockGenerateShippingNoticeProprietaryIDs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
 		t.Errorf("Error processing shipping notice %s", shippingError)
@@ -222,6 +222,35 @@ func TestProcessEmptyShippingNoticeGTINs(t *testing.T) {
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateEmptyShippingNoticeGTINs()
+	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
+	if shippingError != nil {
+		t.Errorf("Error processing shipping notice %s", shippingError)
+	}
+
+}
+
+func TestProcessShippingNoticeMixedProducts(t *testing.T) {
+	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
+	testServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		time.Sleep(1 * time.Second)
+		if request.URL.EscapedPath() != "/skus" {
+			t.Errorf("Expected request to '/skus', received %s", request.URL.EscapedPath())
+		}
+		var jsonData []byte
+		if request.URL.EscapedPath() == "/skus" {
+			result := buildProductData(0.0, 0.0, 0.0, 0.0, "614141007349")
+			jsonData, _ = json.Marshal(result)
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(jsonData)
+	}))
+
+	defer testServer.Close()
+
+	skuMapping := NewSkuMapping(testServer.URL + "/skus")
+	config.AppConfig.EpcToWrin = false
+	inputData := mockGenerateShippingNoticeMixedProducts()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
 		t.Errorf("Error processing shipping notice %s", shippingError)
@@ -385,7 +414,7 @@ func mockGenerateEmptyShippingNoticeGTINs() []byte {
 	return shippingNotice
 }
 
-func mockGenerateShippingNoticeWRINs() []byte {
+func mockGenerateShippingNoticeProprietaryIDs() []byte {
 	shippingNotice := []byte(`{
   			"macaddress": "02:42:0a:00:1e:1a",
   			"application": "productmasterdataservicewithdropbox",
@@ -461,18 +490,54 @@ func mockGenerateShippingNoticeGTINs() []byte {
 					"siteId": "0105",
 					"items": [
 						{
-							"itemId": "12879047",
-							"itemGtin": "00000012879047",
+							"itemId": "00614141007349",
+							"itemGtin": "614141007349",
 							"itemEpcs": [
-								"993402662C3A500012879047",
-								"993402662C3A600012879047"
+								"3034257BF400B7800004CB2F"
 							]
 						}
+					],
+					"orderIds": [
+						"4500076"
+					]
+      			}
+    			]
+  			}
+	}`)
+	return shippingNotice
+}
+
+func mockGenerateShippingNoticeMixedProducts() []byte {
+	shippingNotice := []byte(`{
+  			"macaddress": "02:42:0a:00:1e:1a",
+  			"application": "productmasterdataservicewithdropbox",
+  			"providerId": -1,
+  			"dateTime": "2018-07-30T19:07:10.461Z",
+  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
+  			"value": {
+    			"data": [
+      			{
+					"asnId": "AS876422",
+					"eventTime": "2018-03-12T12: 34: 56.789Z",
+					"siteId": "0105",
+					"items": [
+					{
+						"itemId": "12879047",
+						"itemGtin": "00000012879047",
+						"itemEpcs": [
+							"993402662C00000012879047",
+							"993402662C3A500012879047",
+							"993402662C3B500012879047",
+							"993402662C3C500012879047",
+							"993402662C3D500012879047"
+							]
+					}
 					],
 					"orderIds": [
 						"4500076",
 						"4500036"
 					]
+						
       			},
 				{
 					"asnId": "AS876422",
@@ -480,17 +545,15 @@ func mockGenerateShippingNoticeGTINs() []byte {
 					"siteId": "0105",
 					"items": [
 						{
-							"itemId": "12879048",
-							"itemGtin": "00000012879048",
+							"itemId": "00614141007349",
+							"itemGtin": "614141007349",
 							"itemEpcs": [
-								"993402662C3A500012879048",
-								"993402662C3A600012879048"
+								"3034257BF400B7800004CB2F"
 							]
 						}
 					],
 					"orderIds": [
-						"4500076",
-						"4500036"
+						"4500076"
 					]
       			}
     			]
@@ -532,21 +595,21 @@ func generateHeartbeatModel(input []byte) (models.Heartbeat, error) {
 	return heartbeatEvent.Value, nil
 }
 
-func buildProductData(becomingReadable float64, beingRead float64, dailyTurn float64, exitError float64, gtinSku string) models.SkuMappingResponse {
+func buildProductData(becomingReadable float64, beingRead float64, dailyTurn float64, exitError float64, productID string) models.SkuMappingResponse {
 	var metadata = make(map[string]interface{})
 	metadata["becoming_readable"] = becomingReadable
 	metadata["being_read"] = beingRead
 	metadata["daily_turn"] = dailyTurn
 	metadata["exit_error"] = exitError
 
-	gtinMetadata := models.GtinMetadata{
-		Gtin: gtinSku,
+	productMetadata := models.ProductMetadata{
+		ProductID: productID,
 	}
 
-	gtinList := []models.GtinMetadata{gtinMetadata}
+	productList := []models.ProductMetadata{productMetadata}
 
 	var data = models.ProdData{
-		GtinList: gtinList,
+		ProductList: productList,
 	}
 
 	dataList := []models.ProdData{data}

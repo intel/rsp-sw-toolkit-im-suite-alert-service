@@ -20,15 +20,15 @@
 package asn
 
 import (
-	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
-	"time"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
 	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
+	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"time"
 )
 
-func buildNotWhitelistedAlert(notWhitelisted []models.Gtin) models.Alert {
+func buildNotWhitelistedAlert(notWhitelisted []models.ProductID) models.Alert {
 	var notWhitelistedAlert models.Alert
 	notWhitelistedAlert.SentOn = helper.UnixMilliNow()
 	notWhitelistedAlert.AlertDescription = "Received a list of ASNs that are not whitelisted!"
@@ -40,7 +40,7 @@ func buildNotWhitelistedAlert(notWhitelisted []models.Gtin) models.Alert {
 	return notWhitelistedAlert
 }
 
-func GenerateNotWhitelistedAlert(notWhitelisted []models.Gtin) ([]byte, error) {
+func GenerateNotWhitelistedAlert(notWhitelisted []models.ProductID) ([]byte, error) {
 	var alertMessage models.AlertMessage
 	alert := buildNotWhitelistedAlert(notWhitelisted)
 

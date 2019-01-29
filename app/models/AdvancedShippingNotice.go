@@ -33,41 +33,41 @@ type AdvanceShippingNotice struct {
 }
 
 type AdvanceShippingNoticeItem struct {
-	Sku  string   `json:"itemId"`
-	Gtin string   `json:"itemGtin"`
-	Epcs []string `json:"itemEpcs"`
+	Sku       string   `json:"itemId"`
+	ProductID string   `json:"itemGtin"`
+	Epcs      []string `json:"itemEpcs"`
 }
 
 // SkuMappingResponse is the model of the response from the mapping sku service
-// with the selection of only the gtins/upcs
+// with the selection of only the product id
 type SkuMappingResponse struct {
 	ProdData []ProdData `json:"results"`
 }
 
 // ProdData represents the product data schema in the database
 type ProdData struct {
-	GtinList []GtinMetadata `json:"upcList"`
+	ProductList []ProductMetadata `json:"productList"`
 }
 
-// GtinMetadata represents the GtinList schema attribute in the database
-type GtinMetadata struct {
-	Gtin string `json:"upc"` //upc for now because the skumapping service uses upc and not gtin
+// ProductMetadata represents the ProductList schema attribute in the database
+type ProductMetadata struct {
+	ProductID string `json:"productId"` //product id for now because the skumapping service uses upc and not gtin
 }
 
-// Gtin represents the Gtin object
-type Gtin struct {
-	Gtin string `json:"gtin"`
+// ProductID represents the ProductID object
+type ProductID struct {
+	ProductID string `json:"productId"`
 }
 
-// ConvertToASNList convert array string to array of Gtin objects
-func ConvertToASNList(asns []string) ([]Gtin, error) {
+// ConvertToASNList convert array string to array of ProductID objects
+func ConvertToASNList(asns []string) ([]ProductID, error) {
 	if len(asns) == 0 {
 		return nil, errors.Errorf("List can't be empty")
 
 	}
-	asnList := make([]Gtin, len(asns))
+	asnList := make([]ProductID, len(asns))
 	for i := 0; i < len(asns); i++ {
-		asnList[i].Gtin = asns[i]
+		asnList[i].ProductID = asns[i]
 	}
 	return asnList, nil
 }
