@@ -21,6 +21,7 @@ package alert
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -99,7 +100,7 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 // NotifyChannel iterates through messages in the notification channel and post to cloud connector
 func NotifyChannel(notificationChan chan Notification) {
 	// CloudConnector URL to send alerts
-	cloudConnector := config.AppConfig.CloudConnectorURL + config.AppConfig.CloudConnectorEndpoint
+	cloudConnectorEndpoint := config.AppConfig.CloudConnectorURL + config.AppConfig.CloudConnectorEndpoint
 	notificationChanSize := config.AppConfig.NotificationChanSize
 
 	for notification := range notificationChan {
@@ -121,7 +122,11 @@ func NotifyChannel(notificationChan chan Notification) {
 
 			cloudConnectorPayload := getCloudConnectorPayload(dataBytes)
 			if cloudConnectorPayload.URL != "" {
-				_, err = PostNotification(dataBytes, cloudConnector)
+				cloudConnectorPayloadBytes, err := json.MarshalIndent(cloudConnectorPayload, "", "    ")
+				if err != nil {
+					log.Errorf("unable to marshal. %s", err)
+				}
+				_, err = PostNotification(cloudConnectorPayloadBytes, cloudConnectorEndpoint)
 				if err != nil {
 					log.Errorf("Problem sending notification for %s, %s", notification.NotificationMessage, err)
 				}
@@ -194,6 +199,23 @@ func getCloudConnectorPayload(dataBytes []byte) models.CloudConnectorPayload {
 	if err != nil {
 		log.Errorf("unable to unmarshal. %s", err)
 		return models.CloudConnectorPayload{}
+	}
+
+	// Unmarshal the auth data into the auth model for the cloud connector service to consume.
+	if config.AppConfig.AlertDestinationAuthEndpoint != "" &&
+		config.AppConfig.AlertDestinationAuthType != "" &&
+		config.AppConfig.AlertDestinationClientID != "" &&
+		config.AppConfig.AlertDestinationClientSecret != "" {
+		// Encode the endpoint credentials as base64
+		authDataString := config.AppConfig.AlertDestinationClientID + ":" + config.AppConfig.AlertDestinationClientSecret
+		authData := "basic " + base64.StdEncoding.EncodeToString([]byte(authDataString))
+
+		var newAuth models.Auth
+		newAuth.Endpoint = config.AppConfig.AlertDestinationAuthEndpoint
+		newAuth.AuthType = config.AppConfig.AlertDestinationAuthType
+		newAuth.Data = authData
+
+		cloudConnectorPayload.Auth = newAuth
 	}
 
 	return cloudConnectorPayload

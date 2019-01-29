@@ -26,6 +26,15 @@ type CloudConnectorPayload struct {
 	URL     string      `json:"url"`
 	Header  http.Header `json:"header"`
 	Payload interface{} `json:"payload"`
-	Method  string      `json:"method"`
-	IsAsync bool        `json:"isasync"`
+	// Authentication data
+	Auth    Auth   `json:"auth"`
+	Method  string `json:"method"`
+	IsAsync bool   `json:"isasync"`
+}
+
+// Auth contains the type and the endpoint of authentication
+type Auth struct {
+	AuthType string `json:"authtype"`
+	Endpoint string `json:"endpoint"`
+	Data     string `json:"data"`
 }

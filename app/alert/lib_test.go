@@ -215,6 +215,30 @@ func TestPostNotification(t *testing.T) {
 
 }
 
+func TestPostNotificationWithAuth(t *testing.T) {
+	config.AppConfig.AlertDestinationAuthEndpoint = "www.auth.com"
+	config.AppConfig.AlertDestinationAuthType = "oauth2"
+	config.AppConfig.AlertDestinationClientID = "12345657"
+	config.AppConfig.AlertDestinationClientSecret = "abcdefghijklmn10000"
+	testMockServer, serverErr := getTestMockServer()
+	if serverErr != nil {
+		t.Errorf("Server returned a error %v", serverErr)
+	}
+	defer testMockServer.Close()
+	inputData := mockGenerateHeartbeat()
+	mockCloudConnector := testMockServer.URL + "/aws-test/invoke"
+	_, postErr := PostNotification(inputData, mockCloudConnector)
+	if postErr != nil {
+		t.Errorf("Posting notification failed %s", postErr)
+	}
+	mockCloudConnector = "http://wrongURL:8080" + "/aws-test/invoke"
+	_, postErr = PostNotification(inputData, mockCloudConnector)
+	if postErr == nil {
+		t.Error("Posting notification was successful with wrong URL")
+	}
+
+}
+
 // Alert from gateway which includes gateway_id field
 func mockGenerateAlertFromGateway() []byte {
 	testAlert := []byte(`{

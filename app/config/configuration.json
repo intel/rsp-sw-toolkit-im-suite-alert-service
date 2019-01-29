@@ -18,5 +18,9 @@
   "alertDestination" : "http://172.17.0.1:7777/webhook",
   "heartbeatDestination" : "http://172.17.0.1:7777/webhook",
   "batchSizeMax" : 50,
-  "sendNotWhitelistedAlert" : false
+  "sendNotWhitelistedAlert" : false,
+  "alertDestinationAuthEndpoint" : "http://www.test.com/token",
+  "alertDestinationAuthType" : "oauth2",
+  "alertDestinationClientID" : "clientid",
+  "alertDestinationClientSecret" : "clientsecret"
 }

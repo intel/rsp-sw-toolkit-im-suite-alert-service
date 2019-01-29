@@ -26,19 +26,21 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing, Port string
-		NotificationChanSize                            int
-		CloudConnectorURL, CloudConnectorEndpoint       string
-		TelemetryDataStoreName, TelemetryEndpoint       string
-		WatchdogSeconds                                 int
-		MaxMissedHeartbeats                             int
-		SecureMode, SkipCertVerify                      bool
-		MappingSkuURL, MappingSkuEndpoint               string
-		EpcToWrin                                       bool
-		AlertDestination                                string
-		HeartbeatDestination                            string
-		BatchSizeMax                                    int
-		SendNotWhitelistedAlert                         bool
+		ServiceName, LoggingLevel, ContextSensing, Port        string
+		NotificationChanSize                                   int
+		CloudConnectorURL, CloudConnectorEndpoint              string
+		TelemetryDataStoreName, TelemetryEndpoint              string
+		WatchdogSeconds                                        int
+		MaxMissedHeartbeats                                    int
+		SecureMode, SkipCertVerify                             bool
+		MappingSkuURL, MappingSkuEndpoint                      string
+		EpcToWrin                                              bool
+		AlertDestination                                       string
+		HeartbeatDestination                                   string
+		BatchSizeMax                                           int
+		SendNotWhitelistedAlert                                bool
+		AlertDestinationAuthEndpoint, AlertDestinationAuthType string
+		AlertDestinationClientID, AlertDestinationClientSecret string
 	}
 )
 
@@ -163,6 +165,30 @@ func InitConfig() error {
 	AppConfig.SendNotWhitelistedAlert, err = config.GetBool("sendNotWhitelistedAlert")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
+	}
+
+	AppConfig.AlertDestinationAuthEndpoint, err = config.GetString("alertDestinationAuthEndpoint")
+	if err != nil {
+		AppConfig.AlertDestinationAuthEndpoint = ""
+		err = nil
+	}
+
+	AppConfig.AlertDestinationAuthType, err = config.GetString("alertDestinationAuthType")
+	if err != nil {
+		AppConfig.AlertDestinationAuthType = ""
+		err = nil
+	}
+
+	AppConfig.AlertDestinationClientID, err = config.GetString("alertDestinationClientID")
+	if err != nil {
+		AppConfig.AlertDestinationClientID = ""
+		err = nil
+	}
+
+	AppConfig.AlertDestinationClientSecret, err = config.GetString("alertDestinationClientSecret")
+	if err != nil {
+		AppConfig.AlertDestinationClientSecret = ""
+		err = nil
 	}
 
 	return nil
