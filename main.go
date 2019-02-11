@@ -402,7 +402,7 @@ func extractProductIDs(shippingNotice []interface{}) ([]string, error) {
 func buildODataQuery(productIDs []string) []string {
 	var queries []string
 	for _, productID := range productIDs {
-		queries = append(queries, "(productlist.productId eq '"+productID+"')")
+		queries = append(queries, "(productList.productId eq '"+productID+"')")
 	}
 	return queries
 }
@@ -421,7 +421,7 @@ func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error
 		Timeout: timeout,
 	}
 	urlEncode := &url.URL{Path: stringBytes}
-	urlString := skuUrl + "?$filter=" + urlEncode.String() + "&$select=productlist.productId"
+	urlString := skuUrl + "?$filter=" + urlEncode.String() + "&$select=productList.productId"
 
 	log.Debugf("Call mapping service endpoint: %s", urlString)
 
