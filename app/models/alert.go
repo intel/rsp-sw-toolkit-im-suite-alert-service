@@ -22,7 +22,7 @@ package models
 import (
 	"time"
 
-	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
+	"github.impcloud.net/RSP-Inventory-Suite/utilities/helper"
 )
 
 type Alert struct {

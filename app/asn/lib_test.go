@@ -20,7 +20,7 @@
 package asn
 
 import (
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 	"encoding/json"
 	"testing"
 	"reflect"

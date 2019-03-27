@@ -102,7 +102,7 @@
           "x-go-name": "SiteID"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     },
     "AdvanceShippingNoticeItem": {
       "type": "object",
@@ -123,7 +123,7 @@
           "x-go-name": "Sku"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     },
     "ErrReport": {
       "description": "ErrReport is used to wrap schema validation errors int json object",
@@ -146,7 +146,7 @@
           "x-go-name": "Value"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes/schemas"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes/schemas"
     },
     "ProdData": {
       "description": "ProdData represents the product data schema in the database",
@@ -160,7 +160,7 @@
           "x-go-name": "ProductList"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     },
     "ProductID": {
       "description": "ProductID represents the ProductID object",
@@ -171,7 +171,7 @@
           "x-go-name": "ProductID"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     },
     "ProductMetadata": {
       "description": "ProductMetadata represents the ProductList schema attribute in the database",
@@ -182,7 +182,7 @@
           "x-go-name": "ProductID"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     },
     "SkuMappingResponse": {
       "description": "SkuMappingResponse is the model of the response from the mapping sku service\nwith the selection of only the product id",
@@ -196,7 +196,7 @@
           "x-go-name": "ProdData"
         }
       },
-      "x-go-package": "github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+      "x-go-package": "github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
     }
   },
   "responses": {

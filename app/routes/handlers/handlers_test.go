@@ -26,7 +26,7 @@ import (
 
 	"log"
 
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 )
 
 func TestGetIndex(t *testing.T) {

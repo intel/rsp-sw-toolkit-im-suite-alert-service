@@ -20,10 +20,10 @@
 package schemas
 
 import (
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 
 	"github.com/pkg/errors"
-	"github.impcloud.net/Responsive-Retail-Core/utilities/gojsonschema"
+	"github.impcloud.net/RSP-Inventory-Suite/utilities/gojsonschema"
 )
 
 // ValidateSchemaRequest validates the api request body with the required json schema

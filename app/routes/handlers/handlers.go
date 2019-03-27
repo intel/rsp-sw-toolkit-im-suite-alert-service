@@ -27,12 +27,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	metrics "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes/schemas"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
+	metrics "github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes/schemas"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 )
 
 // Alerts represents the User API method handler set.

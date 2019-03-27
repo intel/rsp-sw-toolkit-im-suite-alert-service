@@ -22,9 +22,9 @@ package asn
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"github.impcloud.net/Responsive-Retail-Core/utilities/helper"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/utilities/helper"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 	"time"
 )
 

@@ -37,5 +37,5 @@ fi
 
 if [[ "${lint}" == true ]]; then
     echo -e "\e[94m running gometalinter..."
-    gometalinter.v2 --vendor --deadline=120s --disable gotype --config=../../Responsive-Retail-Core/ci-go-build-image/linter.json ./...
+    gometalinter.v2 --vendor --deadline=120s --disable gotype --config=../../RSP-Inventory-Suite/ci-go-build-image/linter.json ./...
 fi

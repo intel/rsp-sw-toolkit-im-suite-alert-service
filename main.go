@@ -35,20 +35,20 @@ import (
 	"sync"
 	"time"
 
-	"context_linux_go/core"
-	"context_linux_go/core/sensing"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/context_linux_go/core"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/context_linux_go/core/sensing"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics"
-	reporter "github.impcloud.net/Responsive-Retail-Core/utilities/go-metrics-influxdb"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/alert"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/asn"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/healthcheck"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/utils"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/asn"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/healthcheck"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/utils"
+	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
+	reporter "github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics-influxdb"
 )
 
 const (

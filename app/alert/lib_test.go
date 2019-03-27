@@ -29,8 +29,8 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/config"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 )
 
 func TestMain(m *testing.M) {

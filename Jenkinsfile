@@ -6,7 +6,7 @@ rrpBuildGoCode {
     dockerImageName = "rsp/${projectKey}"
 
     infra = [
-        stackName: 'RRP-CodePipeline-RFID-Alert-Service'
+        stackName: 'RSP-CodePipeline-RFID-Alert-Service'
     ]
 
     notify = [

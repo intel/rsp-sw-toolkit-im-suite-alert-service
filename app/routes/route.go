@@ -22,9 +22,9 @@ package routes
 import (
 	"github.com/gorilla/mux"
 
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/app/routes/handlers"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/middlewares"
-	"github.impcloud.net/Responsive-Retail-Inventory/rfid-alert-service/pkg/web"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes/handlers"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/middlewares"
+	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 )
 
 // Route struct holds attributes to declare routes
