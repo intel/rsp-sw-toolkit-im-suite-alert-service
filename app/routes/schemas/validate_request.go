@@ -23,7 +23,7 @@ import (
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 
 	"github.com/pkg/errors"
-	"github.impcloud.net/RSP-Inventory-Suite/utilities/gojsonschema"
+	"github.impcloud.net/RSP-Inventory-Suite/gojsonschema"
 )
 
 // ValidateSchemaRequest validates the api request body with the required json schema
@@ -68,11 +68,19 @@ func BuildErrorsString(resultsErrors []gojsonschema.ResultError) interface{} {
 	var errors ErrorList
 	for _, err := range resultsErrors {
 		// ignore extraneous "number_one_of" error
+		// err.Field() is not set for "required" error
+		var field string
+		if property, ok := err.Details()["property"].(string); ok {
+			field = property
+		} else {
+			field = err.Field()
+		}
+
 		if err.Type() == "number_one_of" {
 			continue
 		}
+		error.Field = field
 		error.Description = err.Description()
-		error.Field = err.Field()
 		error.ErrorType = err.Type()
 		error.Value = err.Value()
 		errorSlice = append(errorSlice, error)
