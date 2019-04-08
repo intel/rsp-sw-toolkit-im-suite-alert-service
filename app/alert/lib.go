@@ -55,7 +55,7 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Unmarshal-Error", nil)
 
 	jsoned := string(*jsonBytes)
-	log.Infof("Received alert:\n%s", jsoned)
+	log.Debugf("Received alert:\n%s", jsoned)
 
 	var data map[string]interface{}
 
@@ -92,7 +92,7 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 		}
 	}()
 
-	log.Info("Processed alert")
+	log.Debug("Processed alert")
 	mSuccess.Update(1)
 	return nil
 }
