@@ -4,6 +4,7 @@ rrpBuildGoCode {
     ecrRegistry = "280211473891.dkr.ecr.us-west-2.amazonaws.com"
     buildImage = 'amr-registry.caas.intel.com/rrp/ci-go-build-image:1.12.0-alpine'
     dockerImageName = "rsp/${projectKey}"
+    protexProjectName = 'bb-rfid-alert-service'
 
     infra = [
         stackName: 'RSP-CodePipeline-RFID-Alert-Service'
