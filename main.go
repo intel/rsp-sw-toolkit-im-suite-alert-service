@@ -26,6 +26,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	golog "log"
 	"net/http"
 	"net/url"
 	"os"
@@ -240,7 +241,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Unmarshal-Error", nil)
 
 	jsoned := string(*jsonBytes)
-	log.Infof("Received Heartbeat:\n%s", jsoned)
+	log.Debugf("Received Heartbeat:\n%s", jsoned)
 
 	var heartbeatEvent models.HeartbeatMessage
 	err := json.Unmarshal(*jsonBytes, &heartbeatEvent)
@@ -263,7 +264,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 		}
 	}()
 
-	log.Info("Processed heartbeat")
+	log.Debug("Processed heartbeat")
 	mSuccess.Update(1)
 	return nil
 }
@@ -292,7 +293,7 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	productIDs, err := extractProductIDs(shippingNotice)
 
 	if len(productIDs) == 0 {
-		log.Info("Received zero productIDs in shipping notice.")
+		log.Debug("Received zero productIDs in shipping notice.")
 		return nil
 	}
 	oDataQuery := buildODataQuery(productIDs)
@@ -491,6 +492,11 @@ func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error
 
 func main() {
 
+	log.SetFormatter(&log.TextFormatter{
+		DisableColors: true,
+		FullTimestamp: true,
+	})
+
 	// Load config variables
 	if err := config.InitConfig(); err != nil {
 		log.WithFields(log.Fields{
@@ -509,11 +515,7 @@ func main() {
 	// Initialize metrics reporting
 	initMetrics()
 
-	if config.AppConfig.LoggingLevel == "debug" {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetFormatter(&log.JSONFormatter{})
-	}
+	setLoggingLevel(config.AppConfig.LoggingLevel)
 
 	log.WithFields(log.Fields{
 		"Method": "main",
@@ -610,4 +612,22 @@ func errorHandler(message string, err error, errorGauge *metrics.Gauge) {
 			"Error":  err.Error(),
 		}).Error(message)
 	}
+}
+
+func setLoggingLevel(loggingLevel string) {
+	switch strings.ToLower(loggingLevel) {
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "warn":
+		log.SetLevel(log.WarnLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	default:
+		log.SetLevel(log.InfoLevel)
+	}
+
+	// Not using filtered func (Info, etc ) so that message is always logged
+	golog.Printf("Logging level set to %s\n", loggingLevel)
 }
