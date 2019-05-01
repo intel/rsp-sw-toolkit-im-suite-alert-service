@@ -5,6 +5,7 @@ rrpBuildGoCode {
     buildImage = 'amr-registry.caas.intel.com/rrp/ci-go-build-image:1.12.0-alpine'
     dockerImageName = "rsp/${projectKey}"
     protexProjectName = 'bb-rfid-alert-service'
+    customBuildScript = "./build.sh"
 
     infra = [
         stackName: 'RSP-CodePipeline-RFID-Alert-Service'
