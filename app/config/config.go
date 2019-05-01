@@ -26,21 +26,21 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing, Port, ZeroMQ string
-		NotificationChanSize                                    int
-		CloudConnectorURL, CloudConnectorEndpoint               string
-		TelemetryDataStoreName, TelemetryEndpoint               string
-		WatchdogSeconds                                         int
-		MaxMissedHeartbeats                                     int
-		SecureMode, SkipCertVerify                              bool
-		MappingSkuURL, MappingSkuEndpoint                       string
-		EpcToWrin                                               bool
-		AlertDestination                                        string
-		HeartbeatDestination                                    string
-		BatchSizeMax                                            int
-		SendNotWhitelistedAlert                                 bool
-		AlertDestinationAuthEndpoint, AlertDestinationAuthType  string
-		AlertDestinationClientID, AlertDestinationClientSecret  string
+		ServiceName, LoggingLevel, Port, ZeroMQ                string
+		NotificationChanSize                                   int
+		CloudConnectorURL, CloudConnectorEndpoint              string
+		TelemetryDataStoreName, TelemetryEndpoint              string
+		WatchdogSeconds                                        int
+		MaxMissedHeartbeats                                    int
+		SecureMode, SkipCertVerify                             bool
+		MappingSkuURL, MappingSkuEndpoint                      string
+		EpcToWrin                                              bool
+		AlertDestination                                       string
+		HeartbeatDestination                                   string
+		BatchSizeMax                                           int
+		SendNotWhitelistedAlert                                bool
+		AlertDestinationAuthEndpoint, AlertDestinationAuthType string
+		AlertDestinationClientID, AlertDestinationClientSecret string
 	}
 )
 
@@ -60,11 +60,6 @@ func InitConfig() error {
 	}
 
 	AppConfig.ServiceName, err = config.GetString("serviceName")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.ContextSensing, err = config.GetString("contextSensing")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

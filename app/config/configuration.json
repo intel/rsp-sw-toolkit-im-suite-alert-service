@@ -1,7 +1,6 @@
 {
   "serviceName": "RFID Alert service",
-  "port": "9001",
-  "contextSensing": "127.0.0.1:8888",
+  "port": "9001",  
   "watchdogSeconds": 120,
   "maxMissedHeartbeats": 3,
   "loggingLevel": "debug",
