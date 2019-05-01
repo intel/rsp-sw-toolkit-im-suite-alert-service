@@ -28,7 +28,8 @@ for var in "$@"; do
 done
 
 echo -e "  \e[2mGo \e[0m\e[94mBuild(ing)...\e[0m"
-CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo
+#CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo
+CGO_ENABLED=1 GO111MODULE=on go build -a -o ./rfid-alert-service
 
 if [[ "${buildDocker}" == true ]]; then
     echo -e "\e[94m making docker image..."

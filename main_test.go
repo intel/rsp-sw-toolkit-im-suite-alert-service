@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	edgex "github.com/edgexfoundry/go-mod-core-contracts/models"
 	log "github.com/sirupsen/logrus"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
@@ -618,4 +619,33 @@ func buildProductData(becomingReadable float64, beingRead float64, dailyTurn flo
 		ProdData: dataList,
 	}
 	return result
+}
+
+func TestParseReading(t *testing.T) {
+	read := edgex.Reading{
+		Device: "rrs-gateway",
+		Origin: 1471806386919,
+		Value:  "{\"jsonrpc\":\"2.0\",\"topic\":\"rfid/gw/heartbeat\",\"params\":{} }",
+	}
+
+	reading := parseReadingValue(&read)
+
+	if reading.Topic != "rfid/gw/heartbeat" {
+		t.Error("Error parsing Reading Value")
+	}
+}
+
+func TestParseEvent(t *testing.T) {
+
+	eventStr := `{"origin":1471806386919,
+	"device":"rrs-gateway",
+	"readings":[ {"name" : "gwevent", "value": " " } ] 
+   }`
+
+	event := parseEvent(eventStr)
+
+	if event.Device != "rrs-gateway" || event.Origin != 1471806386919 {
+		t.Error("Error parsing edgex event")
+	}
+
 }

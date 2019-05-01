@@ -29,9 +29,9 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
+	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
 )
 
 const (
@@ -65,17 +65,14 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 		mUnmarshalErr.Update(1)
 		return err
 	}
-	if value, ok := data["value"].(map[string]interface{}); !ok {
-		return errors.New("Type assertion failed")
-	} else {
-		gatewayID, ok = value["gateway_id"].(string)
-		if !ok {
-			// ASN Alert will not contain gateway id
-			log.Warn("This may not be an issue, but received Alert without gateway id.")
-		}
+
+	gatewayID, ok := data["gateway_id"].(string)
+	if !ok {
+		// ASN Alert will not contain gateway id
+		log.Warn("This may not be an issue, but received Alert without gateway id.")
 	}
 
-	var alertEvent models.AlertMessage
+	var alertEvent models.Alert
 	err := json.Unmarshal(*jsonBytes, &alertEvent)
 	if err != nil {
 		log.Errorf("error parsing Alert %s", err)
@@ -86,7 +83,7 @@ func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 		notificationChan <- Notification{
 			NotificationMessage: "Process Alert",
 			NotificationType:    AlertType,
-			Data:                alertEvent.Value,
+			Data:                alertEvent,
 			GatewayID:           gatewayID,
 			Endpoint:            config.AppConfig.AlertDestination,
 		}
