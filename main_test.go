@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -637,14 +638,16 @@ func TestParseReading(t *testing.T) {
 
 func TestParseEvent(t *testing.T) {
 
-	eventStr := `{"origin":1471806386919,
+	timestamp := 1471806386919
+
+	eventStr := `{"origin":` + strconv.Itoa(timestamp) + `,
 	"device":"rrs-gateway",
 	"readings":[ {"name" : "gwevent", "value": " " } ] 
    }`
 
 	event := parseEvent(eventStr)
 
-	if event.Device != "rrs-gateway" || event.Origin != 1471806386919 {
+	if event.Device != "rrs-gateway" || event.Origin != int64(timestamp) {
 		t.Error("Error parsing edgex event")
 	}
 

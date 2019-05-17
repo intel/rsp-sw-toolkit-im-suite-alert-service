@@ -61,7 +61,6 @@ const (
 var gateway = models.GetInstanceGateway()
 
 const (
-	eventTopic     = "rfid/gw/events"
 	alertTopic     = "rfid/gw/alerts"
 	heartBeatTopic = "rfid/gw/heartbeat"
 	name           = "gwevent"
@@ -549,7 +548,8 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 		if err := q.Connect(uri); err != nil {
 			logrus.Error(err)
 		}
-		logrus.Infof("Connected to 0MQ at %s", uri)
+		logrus.Info("Connected to 0MQ")
+		// Edgex Delhi release uses no topic for all sensor data
 		q.SetSubscribe("")
 
 		//skuMapping := NewSkuMapping(config.AppConfig.MappingSkuUrl)
@@ -558,50 +558,49 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 			if err != nil {
 				id, _ := q.GetIdentity()
 				logrus.Error(fmt.Sprintf("Error getting message %s", id))
-			} else {
-				for _, str := range msg {
-					event := parseEvent(str)
+				continue
+			}
+			for _, str := range msg {
+				event := parseEvent(str)
 
-					logrus.Debugf(fmt.Sprintf("Event received: %s", event))
-					for _, read := range event.Readings {
+				logrus.Debugf(fmt.Sprintf("Event received: %s", event))
+				for _, read := range event.Readings {
+					if read.Name == "gwevent" {
+						parsedReading := parseReadingValue(&read)
 
-						if read.Name == "gwevent" {
+						switch parsedReading.Topic {
+						case heartBeatTopic:
+							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+							if err != nil {
+								log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
+							}
 
-							parsedReading := parseReadingValue(&read)
-
-							switch parsedReading.Topic {
-							case heartBeatTopic:
-								jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-								if err != nil {
-									log.Errorf("Unable to process heartbeat")
-								}
-
-								if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
-									log.WithFields(log.Fields{
-										"Method": "main",
-										"Action": "process HeartBeat",
-										"Error":  err.Error(),
-									}).Error("error processing heartbeat data")
-								}
-							case alertTopic:
-								var err error
-								jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-								if err != nil {
-									log.Errorf("Unable to process alert")
-								}
-								if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
-									log.WithFields(log.Fields{
-										"Method": "main",
-										"Action": "process Alert",
-										"Error":  err.Error(),
-									}).Error("error processing alert")
-								}
+							if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
+								log.WithFields(log.Fields{
+									"Method": "main",
+									"Action": "process HeartBeat",
+									"Error":  err.Error(),
+								}).Error("error processing heartbeat data")
+							}
+						case alertTopic:
+							var err error
+							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+							if err != nil {
+								log.Errorf("Unable to process alert")
+							}
+							if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
+								log.WithFields(log.Fields{
+									"Method": "main",
+									"Action": "process Alert",
+									"Error":  err.Error(),
+								}).Error("error processing alert")
 							}
 						}
 					}
-
 				}
+
 			}
+
 		}
 	}()
 }
