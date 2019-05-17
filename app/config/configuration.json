@@ -1,7 +1,6 @@
 {
   "serviceName": "RFID Alert service",
-  "port": "9001",
-  "contextSensing": "127.0.0.1:8888",
+  "port": "9001",  
   "watchdogSeconds": 120,
   "maxMissedHeartbeats": 3,
   "loggingLevel": "debug",
@@ -22,5 +21,6 @@
   "alertDestinationAuthEndpoint" : "http://www.test.com/token",
   "alertDestinationAuthType" : "oauth2",
   "alertDestinationClientID" : "clientid",
-  "alertDestinationClientSecret" : "clientsecret"
+  "alertDestinationClientSecret" : "clientsecret",
+  "zeroMQ": "127.0.0.1:5563"
 }

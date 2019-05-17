@@ -36,10 +36,10 @@ import (
 	"sync"
 	"time"
 
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/context_linux_go/core"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/context_linux_go/core/sensing"
-
+	edgex "github.com/edgexfoundry/go-mod-core-contracts/models"
+	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/asn"
@@ -60,6 +60,23 @@ const (
 
 var gateway = models.GetInstanceGateway()
 
+const (
+	alertTopic     = "rfid/gw/alerts"
+	heartBeatTopic = "rfid/gw/heartbeat"
+	name           = "gwevent"
+)
+
+// ZeroMQ implementation of the event publisher
+type zeroMQEventPublisher struct {
+	publisher *zmq.Socket
+	mux       sync.Mutex
+}
+
+type reading struct {
+	Topic  string                 `json:"topic"`
+	Params map[string]interface{} `json:"params"`
+}
+
 // SkuMapping struct for the SkuMapping
 type SkuMapping struct {
 	url string
@@ -74,97 +91,6 @@ func NewSkuMapping(url string) *SkuMapping {
 
 func init() {
 
-}
-
-// nolint: gocyclo
-func initSensing(notificationChan chan alert.Notification) {
-	onSensingStarted := make(core.SensingStartedChannel, 1)
-	onSensingError := make(core.ErrorChannel, 1)
-
-	sensingOptions := core.SensingOptions{
-		Server:                      config.AppConfig.ContextSensing,
-		Publish:                     true,
-		Secure:                      config.AppConfig.SecureMode,
-		SkipCertificateVerification: config.AppConfig.SkipCertVerify,
-		Application:                 config.AppConfig.ServiceName,
-		OnStarted:                   onSensingStarted,
-		OnError:                     onSensingError,
-		Retries:                     10,
-		RetryInterval:               1,
-	}
-
-	sensingSdk := sensing.NewSensing()
-	sensingSdk.Start(sensingOptions)
-
-	go func(options core.SensingOptions) {
-		mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
-
-		onHeartbeat := make(core.ProviderItemChannel, 10)
-		onAlert := make(core.ProviderItemChannel, 10)
-		onShippingNotice := make(core.ProviderItemChannel, 10)
-
-		for {
-			select {
-			case started := <-options.OnStarted:
-				if !started.Started {
-					log.WithFields(log.Fields{
-						"Method": "main",
-						"Action": "connecting to context broker",
-						"Host":   config.AppConfig.ContextSensing,
-					}).Fatal("sensing has failed to start")
-				}
-
-				log.Info("Sensing has started")
-				sensingSdk.AddContextTypeListener("*:*", heartbeatUrn, &onHeartbeat, &onSensingError)
-				sensingSdk.AddContextTypeListener("*:*", alertsUrn, &onAlert, &onSensingError)
-				sensingSdk.AddContextTypeListener("*:*", shippingNoticeUrn, &onShippingNotice, &onSensingError)
-				log.Info("Waiting for Heartbeat, Shipping, and Alert data....")
-
-			case heartbeat := <-onHeartbeat:
-				jsonBytes, err := json.MarshalIndent(*heartbeat, "", "  ")
-				if err != nil {
-					log.Errorf("Unable to process heartbeat")
-				}
-
-				if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
-					log.WithFields(log.Fields{
-						"Method": "main",
-						"Action": "process HeartBeat",
-						"Error":  err.Error(),
-					}).Error("error processing heartbeat data")
-				}
-			case alertItem := <-onAlert:
-				var err error
-				jsonBytes, err := json.MarshalIndent(*alertItem, "", "  ")
-				if err != nil {
-					log.Errorf("Unable to process alert")
-				}
-				if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
-					log.WithFields(log.Fields{
-						"Method": "main",
-						"Action": "process Alert",
-						"Error":  err.Error(),
-					}).Error("error processing alert")
-				}
-			case shippingNotice := <-onShippingNotice:
-
-				go func(notices *core.ItemData) {
-					var err error
-					jsonBytes, err := json.MarshalIndent(*shippingNotice, "", "  ")
-					if err != nil {
-						errorHandler("error marshalling shipping notice data", err, &mRRSProcessShippingNoticeError)
-					}
-					skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
-					if err := skuMapping.processShippingNotice(&jsonBytes, notificationChan); err != nil {
-						errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
-					}
-				}(shippingNotice)
-
-			case err := <-options.OnError:
-				log.Fatalf("Received sensingSdk error: %v, exiting...", err)
-			}
-		}
-	}(sensingOptions)
 }
 
 func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notification) {
@@ -243,7 +169,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 	jsoned := string(*jsonBytes)
 	log.Debugf("Received Heartbeat:\n%s", jsoned)
 
-	var heartbeatEvent models.HeartbeatMessage
+	var heartbeatEvent models.Heartbeat
 	err := json.Unmarshal(*jsonBytes, &heartbeatEvent)
 	if err != nil {
 		log.Errorf("error parsing Heartbeat %s", err)
@@ -251,15 +177,15 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 		return err
 	}
 
-	updateGatewayStatus(heartbeatEvent.Value, notificationChan)
+	updateGatewayStatus(heartbeatEvent, notificationChan)
 
 	// Forward the heartbeat to the notification channel
 	go func() {
 		notificationChan <- alert.Notification{
 			NotificationMessage: "Process Heartbeat",
 			NotificationType:    models.HeartbeatType,
-			Data:                heartbeatEvent.Value,
-			GatewayID:           heartbeatEvent.Value.DeviceID,
+			Data:                heartbeatEvent,
+			GatewayID:           heartbeatEvent.DeviceID,
 			Endpoint:            config.AppConfig.HeartbeatDestination,
 		}
 	}()
@@ -524,8 +450,7 @@ func main() {
 
 	// Initialize channel with set value in config
 	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
-
-	initSensing(notificationChan)
+	receiveZmqEvents(notificationChan)
 	go monitorHeartbeat(config.AppConfig.WatchdogSeconds, notificationChan)
 	go alert.NotifyChannel(notificationChan)
 
@@ -612,6 +537,97 @@ func errorHandler(message string, err error, errorGauge *metrics.Gauge) {
 			"Error":  err.Error(),
 		}).Error(message)
 	}
+}
+
+func receiveZmqEvents(notificationChan chan alert.Notification) {
+
+	go func() {
+		q, _ := zmq.NewSocket(zmq.SUB)
+		defer q.Close()
+		uri := fmt.Sprintf("%s://%s", "tcp", config.AppConfig.ZeroMQ)
+		if err := q.Connect(uri); err != nil {
+			logrus.Error(err)
+		}
+		logrus.Info("Connected to 0MQ")
+		// Edgex Delhi release uses no topic for all sensor data
+		q.SetSubscribe("")
+
+		//skuMapping := NewSkuMapping(config.AppConfig.MappingSkuUrl)
+		for {
+			msg, err := q.RecvMessage(0)
+			if err != nil {
+				id, _ := q.GetIdentity()
+				logrus.Error(fmt.Sprintf("Error getting message %s", id))
+				continue
+			}
+			for _, str := range msg {
+				event := parseEvent(str)
+
+				logrus.Debugf(fmt.Sprintf("Event received: %s", event))
+				for _, read := range event.Readings {
+					if read.Name == "gwevent" {
+						parsedReading := parseReadingValue(&read)
+
+						switch parsedReading.Topic {
+						case heartBeatTopic:
+							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+							if err != nil {
+								log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
+							}
+
+							if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
+								log.WithFields(log.Fields{
+									"Method": "main",
+									"Action": "process HeartBeat",
+									"Error":  err.Error(),
+								}).Error("error processing heartbeat data")
+							}
+						case alertTopic:
+							var err error
+							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+							if err != nil {
+								log.Errorf("Unable to process alert")
+							}
+							if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
+								log.WithFields(log.Fields{
+									"Method": "main",
+									"Action": "process Alert",
+									"Error":  err.Error(),
+								}).Error("error processing alert")
+							}
+						}
+					}
+				}
+
+			}
+
+		}
+	}()
+}
+
+func parseReadingValue(read *edgex.Reading) *reading {
+
+	readingObj := reading{}
+
+	if err := json.Unmarshal([]byte(read.Value), &readingObj); err != nil {
+		logrus.Error(err.Error())
+		logrus.Warn("Failed to parse reading")
+		return nil
+	}
+
+	return &readingObj
+
+}
+
+func parseEvent(str string) *edgex.Event {
+	event := edgex.Event{}
+
+	if err := json.Unmarshal([]byte(str), &event); err != nil {
+		logrus.Error(err.Error())
+		logrus.Warn("Failed to parse event")
+		return nil
+	}
+	return &event
 }
 
 func setLoggingLevel(loggingLevel string) {

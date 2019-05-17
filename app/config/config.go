@@ -26,7 +26,7 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, ContextSensing, Port        string
+		ServiceName, LoggingLevel, Port, ZeroMQ                string
 		NotificationChanSize                                   int
 		CloudConnectorURL, CloudConnectorEndpoint              string
 		TelemetryDataStoreName, TelemetryEndpoint              string
@@ -60,11 +60,6 @@ func InitConfig() error {
 	}
 
 	AppConfig.ServiceName, err = config.GetString("serviceName")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.ContextSensing, err = config.GetString("contextSensing")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
@@ -189,6 +184,11 @@ func InitConfig() error {
 	if err != nil {
 		AppConfig.AlertDestinationClientSecret = ""
 		err = nil
+	}
+
+	AppConfig.ZeroMQ, err = config.GetString("zeroMQ")
+	if err != nil {
+		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
 	return nil
