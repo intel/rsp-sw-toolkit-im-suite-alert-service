@@ -45,7 +45,7 @@ COPY --from=builder /usr/lib/libgcc_s.so.1 /usr/lib/
 COPY --from=builder /usr/lib/libcrypto.so.42 /usr/lib/
 COPY --from=builder /usr/lib/libcrypto.so.42.0.0 /usr/lib/
 
-COPY --from=gobuilder /go/src/github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service /
+COPY --from=gobuilder /go/src/github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/rfid-alert-service /
 
 HEALTHCHECK --interval=5s --timeout=3s CMD ["/rfid-alert-service","-isHealthy"]
 
