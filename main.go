@@ -200,14 +200,13 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	mRRSAsnsNotWhitelisted := metrics.GetOrRegisterGaugeCollection("Rfid-Alert.ASNsNotWhitelisted", nil)
 	log.Debugf("Received advanced shipping notice data:\n%s", string(*jsonBytes))
 
-	var data []interface{}
-
-	decoder := json.NewDecoder(bytes.NewBuffer(*jsonBytes))
-	if err := decoder.Decode(&data); err != nil {
-		return errors.Wrap(err, "unable to Decode data")
+	var advanceShippingNotices []models.AdvanceShippingNotice
+	err := json.Unmarshal((*jsonBytes), &advanceShippingNotices)
+	if err != nil {
+		return errors.Wrap(err, "unable to unmarshal data")
 	}
 
-	productIDs, err := extractProductIDs(data)
+	productIDs, err := extractProductIDs(advanceShippingNotices)
 
 	if len(productIDs) == 0 {
 		log.Debug("Received zero productIDs in shipping notice.")
@@ -296,18 +295,7 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	return nil
 }
 
-func extractProductIDs(shippingNotice []interface{}) ([]string, error) {
-	var advanceShippingNotices []models.AdvanceShippingNotice
-	shippingNoticeBytes, err := json.Marshal(shippingNotice)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(shippingNoticeBytes, &advanceShippingNotices)
-	if err != nil {
-		log.Errorf("Problem unmarshalling the data.")
-		return nil, err
-	}
-
+func extractProductIDs(advanceShippingNotices []models.AdvanceShippingNotice) ([]string, error) {
 	var productIDs []string
 	for _, advanceShippingNotice := range advanceShippingNotices {
 		for _, item := range advanceShippingNotice.Items {

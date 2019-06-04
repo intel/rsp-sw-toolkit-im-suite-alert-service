@@ -389,42 +389,18 @@ func mockGenerateHeartbeat() []byte {
 }
 
 func mockGenerateEmptyShippingNoticeWRINs() []byte {
-	shippingNotice := []byte(`{
-  			"macaddress": "02:42:0a:00:1e:1a",
-  			"application": "productmasterdataservicewithdropbox",
-  			"providerId": -1,
-  			"dateTime": "2018-07-30T19:07:10.461Z",
-  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
-  			"value": {
-    			"data": []
-  			}
-	}`)
+	shippingNotice := []byte(`[]`)
 	return shippingNotice
 }
 
 func mockGenerateEmptyShippingNoticeGTINs() []byte {
-	shippingNotice := []byte(`{
-  			"macaddress": "02:42:0a:00:1e:1a",
-  			"application": "productmasterdataservicewithdropbox",
-  			"providerId": -1,
-  			"dateTime": "2018-07-30T19:07:10.461Z",
-  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
-  			"value": {
-    			"data": []
-  			}
-	}`)
+	shippingNotice := []byte(`[]`)
 	return shippingNotice
 }
 
 func mockGenerateShippingNoticeProprietaryIDs() []byte {
-	shippingNotice := []byte(`{
-  			"macaddress": "02:42:0a:00:1e:1a",
-  			"application": "productmasterdataservicewithdropbox",
-  			"providerId": -1,
-  			"dateTime": "2018-07-30T19:07:10.461Z",
-  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
-  			"value": {
-    			"data": [
+	shippingNotice := []byte(`
+			[
       			{
 					"asnId": "AS876422",
 					"eventTime": "2018-03-12T12: 34: 56.789Z",
@@ -471,21 +447,14 @@ func mockGenerateShippingNoticeProprietaryIDs() []byte {
 					]
 						
       			}
-    			]
-  			}
-	}`)
+    		]
+  		`)
 	return shippingNotice
 }
 
 func mockGenerateShippingNoticeGTINs() []byte {
-	shippingNotice := []byte(`{
-  			"macaddress": "02:42:0a:00:1e:1a",
-  			"application": "productmasterdataservicewithdropbox",
-  			"providerId": -1,
-  			"dateTime": "2018-07-30T19:07:10.461Z",
-  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
-  			"value": {
-    			"data": [
+	shippingNotice := []byte(` 
+			[
       			{
 					"asnId": "AS876422",
 					"eventTime": "2018-03-12T12: 34: 56.789Z",
@@ -503,21 +472,14 @@ func mockGenerateShippingNoticeGTINs() []byte {
 						"4500076"
 					]
       			}
-    			]
-  			}
-	}`)
+    		]
+  		`)
 	return shippingNotice
 }
 
 func mockGenerateShippingNoticeMixedProducts() []byte {
-	shippingNotice := []byte(`{
-  			"macaddress": "02:42:0a:00:1e:1a",
-  			"application": "productmasterdataservicewithdropbox",
-  			"providerId": -1,
-  			"dateTime": "2018-07-30T19:07:10.461Z",
-  			"type": "urn:x-intel:context:retailsensingplatform:shippingmasterdata",
-  			"value": {
-    			"data": [
+	shippingNotice := []byte(`
+			[
       			{
 					"asnId": "AS876422",
 					"eventTime": "2018-03-12T12: 34: 56.789Z",
@@ -558,9 +520,8 @@ func mockGenerateShippingNoticeMixedProducts() []byte {
 						"4500076"
 					]
       			}
-    			]
-  			}
-	}`)
+    		]
+  		`)
 	return shippingNotice
 }
 
