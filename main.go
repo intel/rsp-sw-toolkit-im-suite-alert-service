@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -199,24 +200,14 @@ func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificati
 	mRRSAsnsNotWhitelisted := metrics.GetOrRegisterGaugeCollection("Rfid-Alert.ASNsNotWhitelisted", nil)
 	log.Debugf("Received advanced shipping notice data:\n%s", string(*jsonBytes))
 
-	var data map[string]interface{}
+	var data []interface{}
 
 	decoder := json.NewDecoder(bytes.NewBuffer(*jsonBytes))
 	if err := decoder.Decode(&data); err != nil {
 		return errors.Wrap(err, "unable to Decode data")
 	}
 
-	value, ok := data["value"].(map[string]interface{})
-	if !ok { //nolint: golint
-		return errors.New("Missing Value Field")
-	}
-
-	shippingNotice, ok := value["data"].([]interface{})
-	if !ok { //nolint: golint
-		return errors.New("Missing Data Field")
-	}
-
-	productIDs, err := extractProductIDs(shippingNotice)
+	productIDs, err := extractProductIDs(data)
 
 	if len(productIDs) == 0 {
 		log.Debug("Received zero productIDs in shipping notice.")
@@ -541,6 +532,8 @@ func errorHandler(message string, err error, errorGauge *metrics.Gauge) {
 
 func receiveZmqEvents(notificationChan chan alert.Notification) {
 
+	mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
+
 	go func() {
 		q, _ := zmq.NewSocket(zmq.SUB)
 		defer q.Close()
@@ -552,7 +545,6 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 		// Edgex Delhi release uses no topic for all sensor data
 		q.SetSubscribe("")
 
-		//skuMapping := NewSkuMapping(config.AppConfig.MappingSkuUrl)
 		for {
 			msg, err := q.RecvMessage(0)
 			if err != nil {
@@ -563,8 +555,25 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 			for _, str := range msg {
 				event := parseEvent(str)
 
-				logrus.Debugf(fmt.Sprintf("Event received: %s", event))
 				for _, read := range event.Readings {
+
+					// Advance Shipping Notice data
+					if event.Device == "ASN_Data_Device" {
+						if read.Name == "ASN_data" {
+							logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
+							data, err := base64.StdEncoding.DecodeString(read.Value)
+							if err != nil {
+								errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
+
+							}
+							skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
+							if err := skuMapping.processShippingNotice(&data, notificationChan); err != nil {
+								errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
+							}
+
+						}
+					}
+
 					if read.Name == "gwevent" {
 						parsedReading := parseReadingValue(&read)
 
