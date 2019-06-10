@@ -546,20 +546,19 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 				for _, read := range event.Readings {
 
 					// Advance Shipping Notice data
-					if event.Device == "ASN_Data_Device" {
-						if read.Name == "ASN_data" {
-							logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
-							data, err := base64.StdEncoding.DecodeString(read.Value)
-							if err != nil {
-								errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
+					if event.Device == "ASN_Data_Device" && read.Name == "ASN_data" {
 
-							}
-							skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
-							if err := skuMapping.processShippingNotice(&data, notificationChan); err != nil {
-								errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
-							}
+						logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
+						data, err := base64.StdEncoding.DecodeString(read.Value)
+						if err != nil {
+							errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
 
 						}
+						skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
+						if err := skuMapping.processShippingNotice(&data, notificationChan); err != nil {
+							errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
+						}
+
 					}
 
 					if read.Name == "gwevent" {
