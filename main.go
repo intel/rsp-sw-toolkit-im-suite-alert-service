@@ -412,7 +412,7 @@ func main() {
 	}
 
 	isHealthyPtr := flag.Bool("isHealthy", false, "a bool, runs a healthcheck")
-	flag.Parse()
+	//flag.Parse() is being handled by EdgeX apps function SDK
 
 	if *isHealthyPtr {
 		os.Exit(healthcheck.Healthcheck(config.AppConfig.Port))
