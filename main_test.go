@@ -25,7 +25,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -590,26 +589,12 @@ func TestParseReading(t *testing.T) {
 		Value:  "{\"jsonrpc\":\"2.0\",\"topic\":\"rfid/gw/heartbeat\",\"params\":{} }",
 	}
 
-	reading := parseReadingValue(&read)
+	reading, err := parseReadingValue(&read)
+	if err != nil {
+		t.Errorf("Error parsing Reading Value: %s", err.Error())
+	}
 
 	if reading.Topic != "rfid/gw/heartbeat" {
 		t.Error("Error parsing Reading Value")
 	}
-}
-
-func TestParseEvent(t *testing.T) {
-
-	timestamp := 1471806386919
-
-	eventStr := `{"origin":` + strconv.Itoa(timestamp) + `,
-	"device":"rrs-gateway",
-	"readings":[ {"name" : "gwevent", "value": " " } ] 
-   }`
-
-	event := parseEvent(eventStr)
-
-	if event.Device != "rrs-gateway" || event.Origin != int64(timestamp) {
-		t.Error("Error parsing edgex event")
-	}
-
 }

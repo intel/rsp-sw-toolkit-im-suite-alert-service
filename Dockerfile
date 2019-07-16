@@ -23,10 +23,10 @@ COPY --from=builder /usr/lib/libcrypto.so.42 /usr/lib/
 COPY --from=builder /usr/lib/libcrypto.so.42.0.0 /usr/lib/
 
 ADD rfid-alert-service /
-
+ADD res/docker/ /res
 HEALTHCHECK --interval=5s --timeout=3s CMD ["/rfid-alert-service","-isHealthy"]
 
 ARG GIT_COMMIT=unspecified
 LABEL git_commit=$GIT_COMMIT
 
-ENTRYPOINT ["/rfid-alert-service"]
+CMD ["/rfid-alert-service","--profile=docker","--confdir=/res"]
