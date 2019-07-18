@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	golog "log"
@@ -49,7 +48,6 @@ import (
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/healthcheck"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/utils"
 	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
 	reporter "github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics-influxdb"
@@ -409,13 +407,6 @@ func main() {
 			"Method": "config.InitConfig",
 			"Action": "Load config",
 		}).Fatal(err.Error())
-	}
-
-	isHealthyPtr := flag.Bool("isHealthy", false, "a bool, runs a healthcheck")
-	//flag.Parse() is being handled by EdgeX apps function SDK
-
-	if *isHealthyPtr {
-		os.Exit(healthcheck.Healthcheck(config.AppConfig.Port))
 	}
 
 	// Initialize metrics reporting
