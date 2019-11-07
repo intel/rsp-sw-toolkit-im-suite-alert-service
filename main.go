@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	golog "log"
@@ -37,7 +36,9 @@ import (
 	"sync"
 	"time"
 
-	edgex "github.com/edgexfoundry/go-mod-core-contracts/models"
+	"github.com/edgexfoundry/app-functions-sdk-go/appcontext"
+	"github.com/edgexfoundry/app-functions-sdk-go/appsdk"
+	edgexModels "github.com/edgexfoundry/go-mod-core-contracts/models"
 	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -47,16 +48,9 @@ import (
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/healthcheck"
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/utils"
 	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
 	reporter "github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics-influxdb"
-)
-
-const (
-	heartbeatUrn      = "urn:x-intel:context:retailsensingplatform:heartbeat"
-	alertsUrn         = "urn:x-intel:context:retailsensingplatform:alerts"
-	shippingNoticeUrn = "urn:x-intel:context:retailsensingplatform:shippingmasterdata"
 )
 
 var gateway = models.GetInstanceGateway()
@@ -65,6 +59,7 @@ const (
 	alertTopic     = "rfid/gw/alerts"
 	heartBeatTopic = "rfid/gw/heartbeat"
 	name           = "gwevent"
+	serviceKey     = "rfid-alert-service"
 )
 
 // ZeroMQ implementation of the event publisher
@@ -81,6 +76,10 @@ type reading struct {
 // SkuMapping struct for the SkuMapping
 type SkuMapping struct {
 	url string
+}
+
+type notificationChannel struct {
+	channel chan alert.Notification
 }
 
 // NewSkuMapping initialize new SkuMapping
@@ -410,13 +409,6 @@ func main() {
 		}).Fatal(err.Error())
 	}
 
-	isHealthyPtr := flag.Bool("isHealthy", false, "a bool, runs a healthcheck")
-	flag.Parse()
-
-	if *isHealthyPtr {
-		os.Exit(healthcheck.Healthcheck(config.AppConfig.Port))
-	}
-
 	// Initialize metrics reporting
 	initMetrics()
 
@@ -520,110 +512,121 @@ func errorHandler(message string, err error, errorGauge *metrics.Gauge) {
 
 func receiveZmqEvents(notificationChan chan alert.Notification) {
 
-	mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
+	chann := notificationChannel{channel: notificationChan}
 
 	go func() {
-		q, _ := zmq.NewSocket(zmq.SUB)
-		defer q.Close()
-		uri := fmt.Sprintf("%s://%s", "tcp", config.AppConfig.ZeroMQ)
-		if err := q.Connect(uri); err != nil {
-			logrus.Error(err)
+
+		//Initialized EdgeX apps functionSDK
+		edgexSdk := &appsdk.AppFunctionsSDK{ServiceKey: serviceKey}
+		if err := edgexSdk.Initialize(); err != nil {
+			edgexSdk.LoggingClient.Error(fmt.Sprintf("SDK initialization failed: %v\n", err))
+			os.Exit(-1)
 		}
-		logrus.Info("Connected to 0MQ")
-		// Edgex Delhi release uses no topic for all sensor data
-		q.SetSubscribe("")
 
-		for {
-			msg, err := q.RecvMessage(0)
-			if err != nil {
-				id, _ := q.GetIdentity()
-				logrus.Error(fmt.Sprintf("Error getting message %s", id))
-				continue
-			}
-			for _, str := range msg {
-				event := parseEvent(str)
+		// Filter data by value descriptors
+		valueDescriptors := []string{"ASN_data", "gwevent"}
 
-				for _, read := range event.Readings {
+		edgexSdk.SetFunctionsPipeline(
+			edgexSdk.ValueDescriptorFilter(valueDescriptors),
+			chann.processEvents,
+		)
 
-					// Advance Shipping Notice data
-					if event.Device == "ASN_Data_Device" && read.Name == "ASN_data" {
-
-						logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
-						data, err := base64.StdEncoding.DecodeString(read.Value)
-						if err != nil {
-							errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
-
-						}
-						skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
-						if err := skuMapping.processShippingNotice(&data, notificationChan); err != nil {
-							errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
-						}
-
-					}
-
-					if read.Name == "gwevent" {
-						parsedReading := parseReadingValue(&read)
-
-						switch parsedReading.Topic {
-						case heartBeatTopic:
-							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-							if err != nil {
-								log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
-							}
-
-							if err := processHeartbeat(&jsonBytes, notificationChan); err != nil {
-								log.WithFields(log.Fields{
-									"Method": "main",
-									"Action": "process HeartBeat",
-									"Error":  err.Error(),
-								}).Error("error processing heartbeat data")
-							}
-						case alertTopic:
-							var err error
-							jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-							if err != nil {
-								log.Errorf("Unable to process alert")
-							}
-							if err := alert.ProcessAlert(&jsonBytes, notificationChan); err != nil {
-								log.WithFields(log.Fields{
-									"Method": "main",
-									"Action": "process Alert",
-									"Error":  err.Error(),
-								}).Error("error processing alert")
-							}
-						}
-					}
-				}
-
-			}
-
+		err := edgexSdk.MakeItRun()
+		if err != nil {
+			edgexSdk.LoggingClient.Error("MakeItRun returned error: ", err.Error())
+			os.Exit(-1)
 		}
+
 	}()
 }
 
-func parseReadingValue(read *edgex.Reading) *reading {
+func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context, params ...interface{}) (bool, interface{}) {
+
+	mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
+
+	if len(params) < 1 {
+		return false, nil
+	}
+
+	event := params[0].(edgexModels.Event)
+
+	if len(event.Readings) < 1 {
+		return false, nil
+	}
+
+	if event.Readings[0].Name == "ASN_data" {
+		logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
+		data, err := base64.StdEncoding.DecodeString(event.Readings[0].Value)
+		if err != nil {
+			errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
+			return false, nil
+
+		}
+		skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
+		if err := skuMapping.processShippingNotice(&data, chann.channel); err != nil {
+			errorHandler("error processing shipping notice data", err, &mRRSProcessShippingNoticeError)
+			return false, nil
+		}
+
+		return false, nil
+	}
+
+	if event.Readings[0].Name == "gwevent" {
+
+		parsedReading, err := parseReadingValue(&event.Readings[0])
+		if err != nil {
+			log.WithFields(log.Fields{"Method": "parseReadingValue"}).Error(err.Error())
+			return false, nil
+		}
+
+		switch parsedReading.Topic {
+		case heartBeatTopic:
+			jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+			if err != nil {
+				log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
+				return false, nil
+			}
+
+			if err := processHeartbeat(&jsonBytes, chann.channel); err != nil {
+				log.WithFields(log.Fields{
+					"Method": "main",
+					"Action": "process HeartBeat",
+					"Error":  err.Error(),
+				}).Error("error processing heartbeat data")
+				return false, nil
+			}
+		case alertTopic:
+			var err error
+			jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+			if err != nil {
+				log.Errorf("Unable to process alert")
+				return false, nil
+			}
+			if err := alert.ProcessAlert(&jsonBytes, chann.channel); err != nil {
+				log.WithFields(log.Fields{
+					"Method": "main",
+					"Action": "process Alert",
+					"Error":  err.Error(),
+				}).Error("error processing alert")
+				return false, nil
+			}
+		}
+
+	}
+
+	return false, nil
+}
+
+func parseReadingValue(read *edgexModels.Reading) (*reading, error) {
 
 	readingObj := reading{}
 
 	if err := json.Unmarshal([]byte(read.Value), &readingObj); err != nil {
-		logrus.Error(err.Error())
-		logrus.Warn("Failed to parse reading")
-		return nil
+		return nil, err
 	}
 
-	return &readingObj
+	return &readingObj, nil
 
-}
-
-func parseEvent(str string) *edgex.Event {
-	event := edgex.Event{}
-
-	if err := json.Unmarshal([]byte(str), &event); err != nil {
-		logrus.Error(err.Error())
-		logrus.Warn("Failed to parse event")
-		return nil
-	}
-	return &event
 }
 
 func setLoggingLevel(loggingLevel string) {
