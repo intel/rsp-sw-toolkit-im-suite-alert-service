@@ -56,11 +56,16 @@ import (
 var gateway = models.GetInstanceGateway()
 
 const (
-	alertTopic     = "rfid/gw/alerts"
-	heartBeatTopic = "rfid/gw/heartbeat"
-	name           = "gwevent"
-	serviceKey     = "rfid-alert-service"
+	serviceKey = "rfid-alert-service"
+
+	// Reading names
+	heartbeat   = "controller_heartbeat" // note: the current mqtt-device-service does not forward these
+	deviceAlert = "device_alert"
+	asnData     = "ASN_data"
 )
+
+// only Readings with these names are received.
+var readingFilter = []string{heartbeat, deviceAlert, asnData}
 
 // ZeroMQ implementation of the event publisher
 type zeroMQEventPublisher struct {
@@ -523,11 +528,8 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 			os.Exit(-1)
 		}
 
-		// Filter data by value descriptors
-		valueDescriptors := []string{"ASN_data", "heartbeat", "device_alert"}
-
 		err := edgexSdk.SetFunctionsPipeline(
-			edgexSdk.ValueDescriptorFilter(valueDescriptors),
+			edgexSdk.ValueDescriptorFilter(readingFilter),
 			chann.processEvents,
 		)
 		if err != nil {
@@ -558,14 +560,14 @@ func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context,
 		return false, nil
 	}
 
+	// note: only readings with names matching the readingFilter are received
 	switch event.Readings[0].Name {
-	case "ASN_data":
+	case asnData:
 		logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
 		data, err := base64.StdEncoding.DecodeString(event.Readings[0].Value)
 		if err != nil {
 			errorHandler("error decoding shipping notice data", err, &mRRSProcessShippingNoticeError)
 			return false, nil
-
 		}
 		skuMapping := NewSkuMapping(config.AppConfig.MappingSkuURL + config.AppConfig.MappingSkuEndpoint)
 		if err := skuMapping.processShippingNotice(&data, chann.channel); err != nil {
@@ -574,7 +576,7 @@ func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context,
 		}
 
 		return false, nil
-	case "heartbeat":
+	case heartbeat:
 		parsedReading, err := parseReadingValue(&event.Readings[0])
 		if err != nil {
 			log.WithFields(log.Fields{"Method": "parseReadingValue"}).Error(err.Error())
@@ -594,7 +596,7 @@ func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context,
 			}).Error("error processing heartbeat data")
 			return false, nil
 		}
-	case "device_alert":
+	case deviceAlert:
 		parsedReading, err := parseReadingValue(&event.Readings[0])
 		if err != nil {
 			log.WithFields(log.Fields{"Method": "parseReadingValue"}).Error(err.Error())
