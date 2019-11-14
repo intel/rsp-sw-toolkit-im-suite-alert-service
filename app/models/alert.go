@@ -33,7 +33,7 @@ type Alert struct {
 	AlertNumber      int         `json:"alert_number"`
 	AlertDescription string      `json:"alert_description"`
 	Severity         string      `json:"severity"`
-	GatewayId        string	     `json:"gateway_id"`
+	ControllerID     string      `json:"controller_id"`
 	Optional         interface{} `json:"optional"`
 }
 
@@ -58,7 +58,7 @@ func GatewayRegisteredAlert(heartbeat Heartbeat) (Alert, string) {
 	register.Severity = "info"
 	register.SentOn = helper.UnixMilliNow()
 	register.Facilities = defineFacilities(heartbeat, register)
-	register.GatewayId = heartbeat.DeviceID
+	register.ControllerID = heartbeat.DeviceID
 	// DeviceId is same as GatewayId as there is no sensor id
 	// available in a heartbeat
 	register.DeviceID = heartbeat.DeviceID
@@ -76,7 +76,7 @@ func GatewayDeregisteredAlert(heartbeat Heartbeat) (Alert, string) {
 
 	deregister.SentOn = helper.UnixMilliNow()
 	deregister.Facilities = defineFacilities(heartbeat, deregister)
-	deregister.GatewayId = heartbeat.DeviceID
+	deregister.ControllerID = heartbeat.DeviceID
 	// DeviceId is same as GatewayDeviceId as there is no sensor id
 	// available in a heartbeat
 	deregister.DeviceID = heartbeat.DeviceID
@@ -93,7 +93,7 @@ func GatewayMissedHeartbeatAlert(heartbeat Heartbeat) (Alert, string) {
 	heartbeatMissed.Severity = "critical"
 	heartbeatMissed.SentOn = helper.UnixMilliNow()
 	heartbeatMissed.Facilities = defineFacilities(heartbeat, heartbeatMissed)
-	heartbeatMissed.GatewayId = heartbeat.DeviceID
+	heartbeatMissed.ControllerID = heartbeat.DeviceID
 	// DeviceId is same as GatewayDeviceId as there is no sensor id
 	// available in a heartbeat
 	heartbeatMissed.DeviceID = heartbeat.DeviceID

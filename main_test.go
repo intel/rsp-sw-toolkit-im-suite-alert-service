@@ -105,7 +105,7 @@ func TestHeartbeatAlert(t *testing.T) {
 	if deviceID != heartbeat.DeviceID {
 		t.Error("Alert device id does not match hearbeat device id")
 	}
-	if heartbeatAlert.GatewayId != heartbeat.DeviceID {
+	if heartbeatAlert.ControllerID != heartbeat.DeviceID {
 		t.Error("Alert gateway device id does not match hearbeat device id")
 	}
 	if len(heartbeatAlert.Facilities) != len(heartbeat.Facilities) {
