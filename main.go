@@ -524,14 +524,18 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 		}
 
 		// Filter data by value descriptors
-		valueDescriptors := []string{"ASN_data", "gwevent"}
+		valueDescriptors := []string{"ASN_data", "heartbeat", "device_alert"}
 
-		edgexSdk.SetFunctionsPipeline(
+		err := edgexSdk.SetFunctionsPipeline(
 			edgexSdk.ValueDescriptorFilter(valueDescriptors),
 			chann.processEvents,
 		)
+		if err != nil {
+			edgexSdk.LoggingClient.Error("error: ", err.Error())
+			os.Exit(-1)
+		}
 
-		err := edgexSdk.MakeItRun()
+		err = edgexSdk.MakeItRun()
 		if err != nil {
 			edgexSdk.LoggingClient.Error("MakeItRun returned error: ", err.Error())
 			os.Exit(-1)
@@ -554,7 +558,8 @@ func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context,
 		return false, nil
 	}
 
-	if event.Readings[0].Name == "ASN_data" {
+	switch event.Readings[0].Name {
+	case "ASN_data":
 		logrus.Debugf(fmt.Sprintf("ASN data received: %s", event))
 		data, err := base64.StdEncoding.DecodeString(event.Readings[0].Value)
 		if err != nil {
@@ -569,49 +574,45 @@ func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context,
 		}
 
 		return false, nil
-	}
-
-	if event.Readings[0].Name == "gwevent" {
-
+	case "heartbeat":
 		parsedReading, err := parseReadingValue(&event.Readings[0])
 		if err != nil {
 			log.WithFields(log.Fields{"Method": "parseReadingValue"}).Error(err.Error())
 			return false, nil
 		}
-
-		switch parsedReading.Topic {
-		case heartBeatTopic:
-			jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-			if err != nil {
-				log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
-				return false, nil
-			}
-
-			if err := processHeartbeat(&jsonBytes, chann.channel); err != nil {
-				log.WithFields(log.Fields{
-					"Method": "main",
-					"Action": "process HeartBeat",
-					"Error":  err.Error(),
-				}).Error("error processing heartbeat data")
-				return false, nil
-			}
-		case alertTopic:
-			var err error
-			jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
-			if err != nil {
-				log.Errorf("Unable to process alert")
-				return false, nil
-			}
-			if err := alert.ProcessAlert(&jsonBytes, chann.channel); err != nil {
-				log.WithFields(log.Fields{
-					"Method": "main",
-					"Action": "process Alert",
-					"Error":  err.Error(),
-				}).Error("error processing alert")
-				return false, nil
-			}
+		jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+		if err != nil {
+			log.Errorf("Unable to process heartbeat. Error: %s", err.Error())
+			return false, nil
 		}
 
+		if err := processHeartbeat(&jsonBytes, chann.channel); err != nil {
+			log.WithFields(log.Fields{
+				"Method": "main",
+				"Action": "process HeartBeat",
+				"Error":  err.Error(),
+			}).Error("error processing heartbeat data")
+			return false, nil
+		}
+	case "device_alert":
+		parsedReading, err := parseReadingValue(&event.Readings[0])
+		if err != nil {
+			log.WithFields(log.Fields{"Method": "parseReadingValue"}).Error(err.Error())
+			return false, nil
+		}
+		jsonBytes, err := json.MarshalIndent(&parsedReading.Params, "", "  ")
+		if err != nil {
+			log.Errorf("Unable to process alert")
+			return false, nil
+		}
+		if err := alert.ProcessAlert(&jsonBytes, chann.channel); err != nil {
+			log.WithFields(log.Fields{
+				"Method": "main",
+				"Action": "process Alert",
+				"Error":  err.Error(),
+			}).Error("error processing alert")
+			return false, nil
+		}
 	}
 
 	return false, nil
