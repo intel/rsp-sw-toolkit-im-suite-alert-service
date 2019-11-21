@@ -26,13 +26,12 @@ import (
 
 type (
 	variables struct {
-		ServiceName, LoggingLevel, Port, ZeroMQ                string
+		ServiceName, LoggingLevel, Port                        string
 		NotificationChanSize                                   int
 		CloudConnectorURL, CloudConnectorEndpoint              string
 		TelemetryDataStoreName, TelemetryEndpoint              string
 		WatchdogSeconds                                        int
 		MaxMissedHeartbeats                                    int
-		SecureMode, SkipCertVerify                             bool
 		MappingSkuURL, MappingSkuEndpoint                      string
 		EpcToWrin                                              bool
 		AlertDestination                                       string
@@ -93,18 +92,6 @@ func InitConfig() error {
 	}
 	if AppConfig.MaxMissedHeartbeats < 0 {
 		return errors.New("Negative value not accepted")
-	}
-
-	AppConfig.SecureMode, err = config.GetBool("secureMode")
-	if err != nil {
-		AppConfig.SecureMode = false
-		err = nil
-	}
-
-	AppConfig.SkipCertVerify, err = config.GetBool("skipCertVerify")
-	if err != nil {
-		AppConfig.SkipCertVerify = false
-		err = nil
 	}
 
 	AppConfig.Port, err = config.GetString("port")
@@ -184,11 +171,6 @@ func InitConfig() error {
 	if err != nil {
 		AppConfig.AlertDestinationClientSecret = ""
 		err = nil
-	}
-
-	AppConfig.ZeroMQ, err = config.GetString("zeroMQ")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 
 	return nil

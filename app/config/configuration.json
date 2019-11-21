@@ -21,6 +21,5 @@
   "alertDestinationAuthEndpoint" : "http://www.test.com/token",
   "alertDestinationAuthType" : "oauth2",
   "alertDestinationClientID" : "clientid",
-  "alertDestinationClientSecret" : "clientsecret",
-  "zeroMQ": "127.0.0.1:5563"
+  "alertDestinationClientSecret" : "clientsecret"  
 }

@@ -33,8 +33,8 @@ COPY --from=builder /usr/lib/libcrypto.so.42.0.0 /usr/lib/
 COPY --from=builder /usr/bin/curl /usr/bin/
 COPY --from=builder /rootfs/curl /
 
-ADD rfid-alert-service /
-ADD res/docker/ /res
+COPY rfid-alert-service /
+COPY res/docker/ /res
 
 ARG GIT_COMMIT=unspecified
 LABEL git_commit=$GIT_COMMIT
