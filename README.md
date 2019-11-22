@@ -31,4 +31,6 @@ sudo make build
 sudo make deploy
 ```
 
+### API Documentation ###
 
+Go to [https://editor.swagger.io](https://editor.swagger.io) and import rfid-alert-service.yml file.

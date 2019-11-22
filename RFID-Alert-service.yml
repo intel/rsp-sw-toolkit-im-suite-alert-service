@@ -17,7 +17,6 @@ info:
     <blockquote>•<b> loggingLevel</b> - Logging level to use: "info" (default) or "debug" (verbose).</blockquote>
     <blockquote>•<b> notificationChanSize</b> - Channel size of a go channel named as notificationChan.</blockquote>
     <blockquote>•<b> port</b> - Port to run the service's HTTP Server on.</blockquote>
-    <blockquote>•<b> contextSensing</b> - Host and port number for the Context Broker.</blockquote>
     <blockquote>•<b> watchdogSeconds</b> - Time interval set to check the status of registered gateways</blockquote>
     <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that can be missed before the gateway gets deregistered.</blockquote>
     <blockquote>•<b> cloudConnectorURL</b> - URL for Cloud-connector service.</blockquote>
@@ -25,11 +24,22 @@ info:
     <blockquote>•<b> Destination</b> - Endpoint URL for Cloud-connector to send notificaiton to.</blockquote>
     <blockquote>•<b> telemetryEndpoint</b> - URL of the telemetry service receiving the metrics from the service.</blockquote>
     <blockquote>•<b> telemetryDataStoreName</b> - Name of the data store in the telemetry service to store the metrics.</blockquote>
+    <blockquote>•<b> heartbeatEndpoint</b> - </blockquote>
+    <blockquote>•<b> mappingSkuEndpoint</b> - </blockquote>
+    <blockquote>•<b> alertDestination</b> - </blockquote>
+    <blockquote>•<b> heartbeatDestination</b> - </blockquote>
+    <blockquote>•<b> batchSizeMax</b> - </blockquote>
+    <blockquote>•<b> sendNotWhitelistedAlert</b> - </blockquote>
+    <blockquote>•<b> epcToWrin</b> - </blockquote>
+    <blockquote>•<b> alertDestinationAuthEndpoint</b> - </blockquote>
+    <blockquote>•<b> alertDestinationAuthType</b> - </blockquote>
+    <blockquote>•<b> alertDestinationClientID</b> - </blockquote>
+    <blockquote>•<b> alertDestinationClientSecret</b> - </blockquote>
     </blockquote>
 
     <pre><b>Example configuration file json
     &#9{
-    &#9&#9"serviceName": "RRP - RFID Alert service",
+    &#9&#9"serviceName": "RFID Alert service",
     &#9&#9"loggingLevel": "debug",
     &#9&#9"notificationChanSize": 100,
     &#9&#9"port": "8080",
@@ -38,17 +48,19 @@ info:
     &#9&#9"maxMissedHeartbeats": 3,
     &#9&#9"cloudConnectorURL": "http://127.0.0.1:8081",
     &#9&#9"cloudConnectorEndpoint": "/aws/invoke",
-    &#9&#9"Destination": "https://test.com/call",
-    &#9&#9"secureMode": false,
-    &#9&#9"skipCertVerify": false,
-    &#9&#9"telemetryEndpoint": "http://166.130.9.122:8000",
-    &#9&#9"telemetryDataStoreName" : "Store105",
+    &#9&#9"cloudConnectorEndpoint: "/callwebhook"
+    &#9&#9"heartbeatEndpoint: "/heartbeat"
+    &#9&#9"mappingSkuEndpoint: "/skus"
+    &#9&#9"alertDestination: ""
+    &#9&#9"heartbeatDestination: ""
+    &#9&#9"batchSizeMax: 50
+    &#9&#9"sendNotWhitelistedAlert: "false"
+    &#9&#9"epcToWrin: "false"
+    &#9&#9"alertDestinationAuthEndpoint: ""
+    &#9&#9"alertDestinationAuthType: ""
+    &#9&#9"alertDestinationClientID: ""
+    &#9&#9"alertDestinationClientSecret: ""
     &#9}
-    </b></pre>
-    <pre><b>Example environment variables in compose file
-    &#9cloudConnectorURL: "https://cloudconnector:5001",
-    &#9runtimeConfigPath: "/data/configs/rfid-alert.json"
-    &#9contextSenisng: "127.0.0.1:8888",
     </b></pre>
     </blockquote>
 
@@ -58,16 +70,7 @@ info:
     <blockquote>•<b> configuration.json</b> - Configuration file referenced above</blockquote>
     </blockquote>
 
-    __Known services this service depends on:__
-    ○ Context Sensing
-    ○ Cloud-connector
-
-    __Known services that depend upon this service:__
-    ○ None
   title: RFID Alert Service API
-  contact:
-    name: RRP
-    email: rrp@intel.com
   version: 0.0.1
 host: 'rfid-alert-service:8080'
 basePath: /
