@@ -1,9 +1,18 @@
 # Intel® Inventory Suite rfid-alert-service
 [![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE)
 
-RFID Alert service provides the capabilities to monitor Intel® RSP Controller status and send alerts. Intel® RSP Controller status is updated periodically based on events sent through Heartbeat listener from EdgeX Core Data and alerts are generated when heartbeats are missed. Also, alert events are processed and posted to the REST endpoint specified. 
+The RFID Alert Service generates and routes alerts for Intel® RSP Controller
+status, Advance Shipping Notices, and upstream service alerts.
 
-[Need more explanation for ASN]
+- *Intel® RSP Controller Status*: 
+    the service listens to EdgeX Core Data for controller heartbeats and,
+    if it misses multiple consecutive heartbeats, it sends an alert.
+- *ASN Events*:
+    when enabled, the service verifies Advance Shipping Notices' products' 
+    statuses and sends alerts for any that aren't whitelisted.
+- *Upstream Alerts*:
+    the service processes incoming alerts from other services and posts them to 
+    a configured REST endpoint. 
 
 # Depends on
 
