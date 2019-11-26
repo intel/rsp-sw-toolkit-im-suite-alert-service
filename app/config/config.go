@@ -33,7 +33,6 @@ type (
 		WatchdogSeconds                                        int
 		MaxMissedHeartbeats                                    int
 		MappingSkuURL, MappingSkuEndpoint                      string
-		EpcToWrin                                              bool
 		AlertDestination                                       string
 		HeartbeatDestination                                   string
 		BatchSizeMax                                           int
@@ -120,11 +119,6 @@ func InitConfig() error {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}
 	AppConfig.MappingSkuEndpoint, err = config.GetString("mappingSkuEndpoint")
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
-	}
-
-	AppConfig.EpcToWrin, err = config.GetBool("epcToWrin")
 	if err != nil {
 		return errors.Wrapf(err, "Unable to load config variables: %s", err.Error())
 	}

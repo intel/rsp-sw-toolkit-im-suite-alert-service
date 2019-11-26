@@ -21,21 +21,18 @@ info:
     <blockquote>•<b> maxMissedHeartbeats</b> - Maximum heart beats that can be missed before the gateway gets deregistered.</blockquote>
     <blockquote>•<b> cloudConnectorURL</b> - URL for Cloud-connector service.</blockquote>
     <blockquote>•<b> cloudConnectorEndpoint</b> - Endpoint for Cloud-connector service.</blockquote>
-    <blockquote>•<b> Destination</b> - Endpoint URL for Cloud-connector to send notificaiton to.</blockquote>
+    <blockquote>•<b> mappingSkuURL</b> - URL for Product Data Service.</blockquote>
+    <blockquote>•<b> mappingSkuEndpoint</b> - Endpoint for Product Data Service.</blockquote>
     <blockquote>•<b> telemetryEndpoint</b> - URL of the telemetry service receiving the metrics from the service.</blockquote>
     <blockquote>•<b> telemetryDataStoreName</b> - Name of the data store in the telemetry service to store the metrics.</blockquote>
-    <blockquote>•<b> heartbeatEndpoint</b> - </blockquote>
-    <blockquote>•<b> mappingSkuEndpoint</b> - </blockquote>
-    <blockquote>•<b> alertDestination</b> - </blockquote>
-    <blockquote>•<b> heartbeatDestination</b> - </blockquote>
+    <blockquote>•<b> heartbeatDestination</b> - Destination to which heartbeats are forwarded.</blockquote>
+    <blockquote>•<b> alertDestination</b> - Destination to which alerts are sent.</blockquote>
+    <blockquote>•<b> alertDestinationAuthEndpoint</b> - If the alertDestination requires authorization, this endpoint is first used to fetch an authorization token according to the authorization type, client ID, and secret.</blockquote>
+    <blockquote>•<b> alertDestinationAuthType</b> - Authorization type, (e.g., oauth2), sent to the Cloud Connector Service.</blockquote>
+    <blockquote>•<b> alertDestinationClientID</b> - Authorization Client ID, sent to the Cloud Connector.</blockquote>
+    <blockquote>•<b> alertDestinationClientSecret</b> - Authorization Client Secret, sent to the Cloud Connector.</blockquote>
+    <blockquote>•<b> sendNotWhitelistedAlert</b> - If true, the service will check ASNs for product IDs that aren't whitelisted (e.g., the Product Data Service doesn't have an entry for the product ID) and send alerts when any are detected.</blockquote>
     <blockquote>•<b> batchSizeMax</b> - </blockquote>
-    <blockquote>•<b> sendNotWhitelistedAlert</b> - </blockquote>
-    <blockquote>•<b> epcToWrin</b> - </blockquote>
-    <blockquote>•<b> alertDestinationAuthEndpoint</b> - </blockquote>
-    <blockquote>•<b> alertDestinationAuthType</b> - </blockquote>
-    <blockquote>•<b> alertDestinationClientID</b> - </blockquote>
-    <blockquote>•<b> alertDestinationClientSecret</b> - </blockquote>
-    </blockquote>
 
     <pre><b>Example configuration file json
     &#9{

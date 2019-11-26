@@ -155,7 +155,6 @@ func TestProcessShippingNoticeWRINs(t *testing.T) {
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 
-	config.AppConfig.EpcToWrin = true
 	inputData := mockGenerateShippingNoticeProprietaryIDs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
@@ -174,7 +173,6 @@ func TestProcessEmptyShippingNoticeWRINs(t *testing.T) {
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
 
-	config.AppConfig.EpcToWrin = true
 	inputData := mockGenerateEmptyShippingNoticeWRINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
@@ -203,7 +201,6 @@ func TestProcessShippingNoticeGTINs(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateShippingNoticeGTINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
@@ -221,7 +218,6 @@ func TestProcessEmptyShippingNoticeGTINs(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateEmptyShippingNoticeGTINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
@@ -250,7 +246,6 @@ func TestProcessShippingNoticeMixedProducts(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateShippingNoticeMixedProducts()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
 	if shippingError != nil {
@@ -267,7 +262,6 @@ func TestProcessShippingNoticeGTINsBadRequest(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	inputData := mockGenerateShippingNoticeGTINs()
 	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
@@ -297,7 +291,6 @@ func TestProcessShippingNoticeGTINMaxs(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	config.AppConfig.BatchSizeMax = 1
 	inputData := mockGenerateShippingNoticeGTINs()
 	shippingError := skuMapping.processShippingNotice(&inputData, notificationChan)
@@ -315,7 +308,6 @@ func TestProcessShippingNoticeGTINMaxsBadRequest(t *testing.T) {
 	defer testServer.Close()
 
 	skuMapping := NewSkuMapping(testServer.URL + "/skus")
-	config.AppConfig.EpcToWrin = false
 	config.AppConfig.BatchSizeMax = 1
 	inputData := mockGenerateShippingNoticeGTINs()
 	notificationChan := make(chan alert.Notification, config.AppConfig.NotificationChanSize)
