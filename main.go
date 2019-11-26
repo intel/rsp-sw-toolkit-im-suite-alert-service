@@ -39,7 +39,6 @@ import (
 	"github.com/edgexfoundry/app-functions-sdk-go/appcontext"
 	"github.com/edgexfoundry/app-functions-sdk-go/appsdk"
 	edgexModels "github.com/edgexfoundry/go-mod-core-contracts/models"
-	zmq "github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -67,12 +66,6 @@ const (
 // only Readings with these names are received.
 var readingFilter = []string{heartbeat, deviceAlert, asnData}
 
-// ZeroMQ implementation of the event publisher
-type zeroMQEventPublisher struct {
-	publisher *zmq.Socket
-	mux       sync.Mutex
-}
-
 type reading struct {
 	Topic  string                 `json:"topic"`
 	Params map[string]interface{} `json:"params"`
@@ -92,10 +85,6 @@ func NewSkuMapping(url string) *SkuMapping {
 	return &SkuMapping{
 		url: url,
 	}
-}
-
-func init() {
-
 }
 
 func monitorHeartbeat(watchdogSeconds int, notificationChan chan alert.Notification) {
