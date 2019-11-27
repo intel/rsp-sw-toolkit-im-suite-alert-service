@@ -23,7 +23,7 @@ import (
 	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 
 	"github.com/pkg/errors"
-	"github.impcloud.net/RSP-Inventory-Suite/gojsonschema"
+	"github.com/intel/rsp-sw-toolkit-im-suite-gojsonschema"
 )
 
 // ValidateSchemaRequest validates the api request body with the required json schema
