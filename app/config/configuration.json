@@ -18,5 +18,5 @@
   "alertDestinationAuthEndpoint": "http://www.test.com/token",
   "alertDestinationAuthType": "oauth2",
   "alertDestinationClientID": "clientid",
-  "alertDestinationClientSecret": "clientsecret",
+  "alertDestinationClientSecret": "clientsecret"
 }
