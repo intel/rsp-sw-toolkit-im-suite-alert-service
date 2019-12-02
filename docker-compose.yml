@@ -59,7 +59,6 @@ services:
       heartbeatDestination: ""
       batchSizeMax: 50
       sendNotWhitelistedAlert: "false"
-      epcToWrin: "false"
       alertDestinationAuthEndpoint: ""
       alertDestinationAuthType: ""
       alertDestinationClientID: ""
