@@ -52,7 +52,6 @@ info:
     &#9&#9"heartbeatDestination: ""
     &#9&#9"batchSizeMax: 50
     &#9&#9"sendNotWhitelistedAlert: "false"
-    &#9&#9"epcToWrin: "false"
     &#9&#9"alertDestinationAuthEndpoint: ""
     &#9&#9"alertDestinationAuthType: ""
     &#9&#9"alertDestinationClientID: ""
