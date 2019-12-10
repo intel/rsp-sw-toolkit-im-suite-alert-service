@@ -1,3 +1,9 @@
+/* Apache v2 license
+*  Copyright (C) <2019> Intel Corporation
+*
+*  SPDX-License-Identifier: Apache-2.0
+ */
+
 package utils
 
 import "testing"
@@ -10,7 +16,7 @@ func TestRemoveDuplicates(t *testing.T) {
 	}
 }
 
-func TestFilter(t *testing.T){
+func TestFilter(t *testing.T) {
 	array := []string{"sensor1", "sensor2", "sensor3"}
 	filterArray := []string{"sensor1", "sensor2"}
 	filteredArray := Filter(array, func(v string) bool {
