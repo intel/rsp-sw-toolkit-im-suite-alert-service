@@ -9,7 +9,7 @@ package models
 import (
 	"time"
 
-	"github.impcloud.net/RSP-Inventory-Suite/utilities/helper"
+	"github.com/intel/rsp-sw-toolkit-im-suite-utilities/helper"
 )
 
 type Alert struct {

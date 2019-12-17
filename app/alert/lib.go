@@ -14,11 +14,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/config"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/models"
+	"github.com/intel/rsp-sw-toolkit-im-suite-utilities/go-metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
-	"github.impcloud.net/RSP-Inventory-Suite/utilities/go-metrics"
 )
 
 const (
