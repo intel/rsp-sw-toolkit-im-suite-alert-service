@@ -8,10 +8,10 @@ schemes:
 swagger: '2.0'
 info:
   description: |-
-    RFID Alert service provides the capabilities to monitor Intel® RSP Controller status and send alerts. Intel® RSP Controller status is updated periodically based on events sent through Heartbeat listener from EdgeX Core Data and alerts are generated when heartbeats are missed. Also, alert events are processed and posted to the REST endpoint specified.
+    Alert service provides the capabilities to monitor Intel® RSP Controller status and send alerts. Intel® RSP Controller status is updated periodically based on events sent through Heartbeat listener from EdgeX Core Data and alerts are generated when heartbeats are missed. Also, alert events are processed and posted to the REST endpoint specified.
 
     __Configuration Values__
-    <blockquote>RFID Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.
+    <blockquote>Alert service configuration is split between values set in a configuration file and those set as environment values in compose file. The configuration file is expected to be contained in a docker secret for production deployments, but can be on a docker volume for validation and development.
     <blockquote><b>Configuration file values</b>
     <blockquote>•<b> serviceName</b> - Runtime name of the service.</blockquote>
     <blockquote>•<b> loggingLevel</b> - Logging level to use: "info" (default) or "debug" (verbose).</blockquote>
@@ -36,7 +36,7 @@ info:
 
     <pre><b>Example configuration file json
     &#9{
-    &#9&#9"serviceName": "RFID Alert service",
+    &#9&#9"serviceName": "Alert service",
     &#9&#9"loggingLevel": "debug",
     &#9&#9"notificationChanSize": 100,
     &#9&#9"port": "8080",
@@ -66,9 +66,9 @@ info:
     <blockquote>•<b> configuration.json</b> - Configuration file referenced above</blockquote>
     </blockquote>
 
-  title: RFID Alert Service API
+  title: Alert Service API
   version: 0.0.1
-host: 'rfid-alert-service:8080'
+host: 'alert-service:8080'
 basePath: /
 paths:
   /:
@@ -87,7 +87,7 @@ paths:
       responses:
         '200':
           description: OK
-  /rfid-alert/alertmessage:
+  /alert/alertmessage:
     post:
       description: |-
         Alert message for events should be in request body payload in JSON format.<br><br>

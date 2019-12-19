@@ -28,7 +28,7 @@ _cgo_export.*
 _testmain.go
 
 # Binaries
-rfid-alert-service
+alert-service
 
 #Ignoring Mongodata
 data/

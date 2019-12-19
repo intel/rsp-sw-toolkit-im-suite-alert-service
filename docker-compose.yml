@@ -12,8 +12,8 @@ networks:
 
 services:  
 
-  rfid-alert:
-    image: rsp/rfid-alert-service:dev
+  Alert:
+    image: rsp/alert-service:dev
     user: "2000:2000"
     networks:
       - main-net
@@ -39,7 +39,7 @@ services:
       cloudConnectorURL: "http://cloud-connector:8080"
       mappingSkuURL : "http://product-data:8080"
       watchdogSeconds: 120
-      serviceName: "RFID Alert service"
+      serviceName: "Alert service"
       maxMissedHeartbeats: 3
       notificationChanSize: 100
       cloudConnectorEndpoint: "/callwebhook"

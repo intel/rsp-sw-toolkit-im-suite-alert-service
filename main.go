@@ -42,7 +42,7 @@ import (
 var gateway = models.GetInstanceGateway()
 
 const (
-	serviceKey = "rfid-alert-service"
+	serviceKey = "alert-service"
 
 	// Reading names
 	heartbeat   = "controller_heartbeat" // note: the current mqtt-device-service does not forward these
@@ -141,11 +141,11 @@ func updateGatewayStatus(hb models.Heartbeat, notificationChan chan alert.Notifi
 
 func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
 	// Metrics
-	metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Attempt", nil).Update(1)
+	metrics.GetOrRegisterGauge("Alert.ProcessHeartBeat.Attempt", nil).Update(1)
 	startTime := time.Now()
-	defer metrics.GetOrRegisterTimer("RFID-Alert.ProcessHeartBeat.Latency", nil).UpdateSince(startTime)
-	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Success", nil)
-	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessHeartBeat.Unmarshal-Error", nil)
+	defer metrics.GetOrRegisterTimer("Alert.ProcessHeartBeat.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("Alert.ProcessHeartBeat.Success", nil)
+	mUnmarshalErr := metrics.GetOrRegisterGauge("Alert.ProcessHeartBeat.Unmarshal-Error", nil)
 
 	jsoned := string(*jsonBytes)
 	log.Debugf("Received Heartbeat:\n%s", jsoned)
@@ -177,7 +177,7 @@ func processHeartbeat(jsonBytes *[]byte, notificationChan chan alert.Notificatio
 }
 
 func (skuMapping SkuMapping) processShippingNotice(jsonBytes *[]byte, notificationChan chan alert.Notification) error {
-	mRRSAsnsNotWhitelisted := metrics.GetOrRegisterGaugeCollection("Rfid-Alert.ASNsNotWhitelisted", nil)
+	mRRSAsnsNotWhitelisted := metrics.GetOrRegisterGaugeCollection("Alert.ASNsNotWhitelisted", nil)
 	log.Debugf("Received advanced shipping notice data:\n%s", string(*jsonBytes))
 
 	var advanceShippingNotices []models.AdvanceShippingNotice
@@ -296,11 +296,11 @@ func buildODataQuery(productIDs []string) []string {
 // MakeGetCallToSkuMapping makes call to the Sku Mapping service to retrieve list of products
 func MakeGetCallToSkuMapping(stringBytes string, skuUrl string) ([]string, error) {
 	// Metrics
-	metrics.GetOrRegisterMeter(`RfidAlertService.MakeGetCallToSkuMapping.Attempt`, nil).Mark(1)
-	mSuccess := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.Success`, nil)
-	mGetErr := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.makePostCall-Error`, nil)
-	mStatusErr := metrics.GetOrRegisterGauge(`RfidAlertService.MakeGetCallToSkuMapping.requestStatusCode-Error`, nil)
-	mGetLatency := metrics.GetOrRegisterTimer(`RfidAlertService.MakeGetCallToSkuMapping.makePostCall-Latency`, nil)
+	metrics.GetOrRegisterMeter(`AlertService.MakeGetCallToSkuMapping.Attempt`, nil).Mark(1)
+	mSuccess := metrics.GetOrRegisterGauge(`AlertService.MakeGetCallToSkuMapping.Success`, nil)
+	mGetErr := metrics.GetOrRegisterGauge(`AlertService.MakeGetCallToSkuMapping.makePostCall-Error`, nil)
+	mStatusErr := metrics.GetOrRegisterGauge(`AlertService.MakeGetCallToSkuMapping.requestStatusCode-Error`, nil)
+	mGetLatency := metrics.GetOrRegisterTimer(`AlertService.MakeGetCallToSkuMapping.makePostCall-Latency`, nil)
 
 	timeout := time.Duration(15) * time.Second
 	client := &http.Client{
@@ -524,7 +524,7 @@ func receiveZmqEvents(notificationChan chan alert.Notification) {
 
 func (chann notificationChannel) processEvents(edgexcontext *appcontext.Context, params ...interface{}) (bool, interface{}) {
 
-	mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Rfid-Alert.ProcessShippingNoticeError", nil)
+	mRRSProcessShippingNoticeError := metrics.GetOrRegisterGauge("Alert.ProcessShippingNoticeError", nil)
 
 	if len(params) < 1 {
 		return false, nil
