@@ -54,7 +54,7 @@ func NewRouter() *mux.Router {
 			"/",
 			alerts.GetIndex,
 		},
-		// swagger:route POST /rfid-alert/alertmessage sendAlertMessage
+		// swagger:route POST /alert/alertmessage sendAlertMessage
 		//
 		// Send alert message for events and post the message to the cloud connector
 		//
@@ -101,7 +101,7 @@ func NewRouter() *mux.Router {
 		{
 			"SendAlertMessage",
 			"POST",
-			"/rfid-alert/alertmessage",
+			"/alert/alertmessage",
 			alerts.SendAlertMessageToCloudConnector,
 		},
 	}

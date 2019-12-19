@@ -35,11 +35,11 @@ const (
 // ProcessAlert takes alert json bytes and post to notification channel
 func ProcessAlert(jsonBytes *[]byte, notificationChan chan Notification) error {
 	// Metrics
-	metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Attempt", nil).Update(1)
+	metrics.GetOrRegisterGauge("Alert.ProcessAlert.Attempt", nil).Update(1)
 	startTime := time.Now()
-	defer metrics.GetOrRegisterTimer("RFID-Alert.ProcessAlert.Latency", nil).UpdateSince(startTime)
-	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Success", nil)
-	mUnmarshalErr := metrics.GetOrRegisterGauge("RFID-Alert.ProcessAlert.Unmarshal-Error", nil)
+	defer metrics.GetOrRegisterTimer("Alert.ProcessAlert.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("Alert.ProcessAlert.Success", nil)
+	mUnmarshalErr := metrics.GetOrRegisterGauge("Alert.ProcessAlert.Unmarshal-Error", nil)
 
 	jsoned := string(*jsonBytes)
 	log.Debugf("Received alert:\n%s", jsoned)
@@ -124,11 +124,11 @@ func NotifyChannel(notificationChan chan Notification) {
 // PostNotification post notification data vial http call to the toURL
 func PostNotification(data []byte, toURL string) ([]byte, error) {
 	// Metrics
-	metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Attempt", nil).Update(1)
+	metrics.GetOrRegisterGauge("Alert.PostNotification.Attempt", nil).Update(1)
 	startTime := time.Now()
-	defer metrics.GetOrRegisterTimer("RFID-Alert.PostNotification.Latency", nil).UpdateSince(startTime)
-	mSuccess := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Success", nil)
-	mNotifyErr := metrics.GetOrRegisterGauge("RFID-Alert.PostNotification.Notify-Error", nil)
+	defer metrics.GetOrRegisterTimer("Alert.PostNotification.Latency", nil).UpdateSince(startTime)
+	mSuccess := metrics.GetOrRegisterGauge("Alert.PostNotification.Success", nil)
+	mNotifyErr := metrics.GetOrRegisterGauge("Alert.PostNotification.Notify-Error", nil)
 
 	timeout := time.Duration(connectionTimeout) * time.Second
 	client := &http.Client{

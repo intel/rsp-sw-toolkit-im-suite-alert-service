@@ -1,7 +1,7 @@
-# Intel® Inventory Suite rfid-alert-service
+# Intel® Inventory Suite alert-service
 [![license](https://img.shields.io/badge/license-Apache%20v2.0-blue.svg)](LICENSE)
 
-The RFID Alert Service generates and routes alerts for Intel® RSP Controller
+The Alert Service generates and routes alerts for Intel® RSP Controller
 status, Advance Shipping Notices, and upstream service alerts.
 
 - *Intel® RSP Controller Status*: 
@@ -39,4 +39,4 @@ sudo make build deploy
 
 ### API Documentation ###
 
-Go to [https://editor.swagger.io](https://editor.swagger.io) and import rfid-alert-service.yml file.
+Go to [https://editor.swagger.io](https://editor.swagger.io) and import alert-service.yml file.

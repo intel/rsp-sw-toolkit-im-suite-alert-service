@@ -29,7 +29,7 @@ type Alerts struct {
 // GetIndex verifies check health
 // nolint :unparam
 func (alerts *Alerts) GetIndex(ctx context.Context, writer http.ResponseWriter, request *http.Request) error {
-	web.Respond(ctx, writer, "RFID Alert Service", http.StatusOK)
+	web.Respond(ctx, writer, "Alert Service", http.StatusOK)
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (alerts *Alerts) SendAlertMessageToCloudConnector(ctx context.Context, writ
 	mSendAlertLatency.Update(time.Since(sentCloudConnectorTimer))
 	mSuccess.Update(1)
 
-	responseData := "RFID Alert Service has successfully process alertMessage to cloud connector"
+	responseData := "Alert Service has successfully process alertMessage to cloud connector"
 	web.Respond(ctx, writer, responseData, http.StatusOK)
 	return nil
 }

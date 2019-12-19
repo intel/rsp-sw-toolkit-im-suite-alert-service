@@ -7,8 +7,8 @@
 
 .PHONY: build deploy stop init
 
-MICROSERVICES=rfid-alert-service 
-			  
+MICROSERVICES=alert-service
+
 BUILDABLE=$(MICROSERVICES)
 .PHONY: $(BUILDABLE)
 
@@ -27,11 +27,11 @@ deploy: init
 	docker stack deploy \
 		--with-registry-auth \
 		--compose-file docker-compose.yml \
-		Rfid-alert-Dev
+		Alert-Dev
 
 init: 
 	docker swarm init 2>/dev/null || true
 
 stop:	
-	docker stack rm Rfid-alert-Dev
+	docker stack rm Alert-Dev
 

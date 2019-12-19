@@ -30,8 +30,8 @@ func TestGetIndex(t *testing.T) {
 		t.Fatalf("Expected 200 response")
 	}
 	log.Print(recorder.Body.String())
-	if recorder.Body.String() != "\"RFID Alert Service\"" {
-		t.Fatalf("Expected body to equal RFID Alert Service")
+	if recorder.Body.String() != "\"Alert Service\"" {
+		t.Fatalf("Expected body to equal Alert Service")
 	}
 }
 
