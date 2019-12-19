@@ -34,7 +34,7 @@ EdgeX and RSP MQTT Device Service should be running at this point.
 ### Installation ###
 
 ```
-make build deploy
+sudo make build deploy
 ```
 
 ### API Documentation ###
