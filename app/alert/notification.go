@@ -9,7 +9,7 @@ package alert
 import (
 	"net/http"
 
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/models"
 )
 
 // Notification struct

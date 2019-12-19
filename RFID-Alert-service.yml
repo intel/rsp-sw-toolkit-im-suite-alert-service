@@ -151,7 +151,6 @@ definitions:
       siteId:
         type: string
         x-go-name: SiteID
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
   AdvanceShippingNoticeItem:
     type: object
     properties:
@@ -166,7 +165,6 @@ definitions:
       itemId:
         type: string
         x-go-name: Sku
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
   ErrReport:
     description: ErrReport is used to wrap schema validation errors int json object
     type: object
@@ -183,7 +181,6 @@ definitions:
       value:
         type: object
         x-go-name: Value
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/routes/schemas
   ProdData:
     description: ProdData represents the product data schema in the database
     type: object
@@ -193,7 +190,6 @@ definitions:
         items:
           $ref: '#/definitions/ProductMetadata'
         x-go-name: ProductList
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
   ProductID:
     description: ProductID represents the ProductID object
     type: object
@@ -201,7 +197,6 @@ definitions:
       productId:
         type: string
         x-go-name: ProductID
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
   ProductMetadata:
     description: ProductMetadata represents the ProductList schema attribute in the database
     type: object
@@ -209,7 +204,6 @@ definitions:
       productId:
         type: string
         x-go-name: ProductID
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
   SkuMappingResponse:
     description: |-
       SkuMappingResponse is the model of the response from the mapping sku service
@@ -221,7 +215,6 @@ definitions:
         items:
           $ref: '#/definitions/ProdData'
         x-go-name: ProdData
-    x-go-package: github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models
 responses:
   internalError:
     description: JSONError is the response for errors that occur within the API.

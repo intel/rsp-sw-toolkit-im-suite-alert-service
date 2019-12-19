@@ -16,10 +16,10 @@ import (
 	"time"
 
 	edgex "github.com/edgexfoundry/go-mod-core-contracts/models"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/alert"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/config"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/models"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/config"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
 )
 
 func TestMain(m *testing.M) {

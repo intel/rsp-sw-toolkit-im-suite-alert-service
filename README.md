@@ -34,10 +34,7 @@ EdgeX and RSP MQTT Device Service should be running at this point.
 ### Installation ###
 
 ```
-git clone https://github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service.git
-cd rfid-alert-service
-sudo make build
-sudo make deploy
+sudo make build deploy
 ```
 
 ### API Documentation ###

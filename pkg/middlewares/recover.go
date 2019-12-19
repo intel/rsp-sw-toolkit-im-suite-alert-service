@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"runtime/debug"
 
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/pkg/web"
 	log "github.com/sirupsen/logrus"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/pkg/web"
 )
 
 // Recover middleware

@@ -8,10 +8,10 @@ package asn
 
 import (
 	"encoding/json"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/alert"
+	"github.com/intel/rsp-sw-toolkit-im-suite-alert-service/app/models"
+	"github.com/intel/rsp-sw-toolkit-im-suite-utilities/helper"
 	"github.com/pkg/errors"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/alert"
-	"github.impcloud.net/RSP-Inventory-Suite/rfid-alert-service/app/models"
-	"github.impcloud.net/RSP-Inventory-Suite/utilities/helper"
 	"time"
 )
 

@@ -39,13 +39,6 @@ debug.test
 test-alertmessage.json
 
 *.exe
-*.test
 *.prof
-
-#vendor stuff
-vendor/github.impcloud.net/RSP-Inventory-Suite/**/*.md
-vendor/github.impcloud.net/RSP-Inventory-Suite/**/vendor/*
-vendor/github.impcloud.net/RSP-Inventory-Suite/**/Jenkinsfile
-vendor/github.impcloud.net/RSP-Inventory-Suite/utilities/configuration/testData
 
 go.sum
